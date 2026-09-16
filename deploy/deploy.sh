@@ -29,7 +29,7 @@ set -a
 set +a
 
 for key in DB_HOST DB_USER DB_PASSWORD DB_NAME APP_SECRET CODE_MOM CODE_DAD; do
-  value="${!key:-}"
+  eval "value=\${$key:-}"
   [ -n "$value" ] || fail ".env 里的 $key 是空的"
 done
 case "$DB_PASSWORD$APP_SECRET$CODE_MOM$CODE_DAD" in
@@ -65,11 +65,12 @@ docker compose up -d
 
 echo
 echo "== 6/6 等健康检查 =="
+healthy=false
 for _ in $(seq 1 20); do
   sleep 3
   status="$(docker inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' attendance 2>/dev/null || echo missing)"
   case "$status" in
-    healthy) ok "容器健康"; break ;;
+    healthy) ok "容器健康"; healthy=true; break ;;
     unhealthy) echo "  容器不健康，最近日志："; docker compose logs --tail=40 attendance; fail "启动失败" ;;
     missing) fail "容器没起来，日志：$(docker compose logs --tail=40 attendance)" ;;
     *) printf '  当前状态：%s，继续等…\n' "$status" ;;
@@ -77,5 +78,9 @@ for _ in $(seq 1 20); do
 done
 
 docker compose ps
+if [ "$healthy" != true ]; then
+  echo
+  echo "⚠ 60 秒内没等到健康状态，自己看一眼：docker compose logs --tail=50 attendance"
+fi
 echo
 echo "接下来：去 Nginx Proxy Manager 加一个 Proxy Host 指向 attendance:3000，然后浏览器打开域名，用 .env 里的 CODE_MOM 登录。"

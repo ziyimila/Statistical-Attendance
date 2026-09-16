@@ -1,3 +1,4 @@
+# ---- 构建阶段：编译前端和后端 ----
 FROM node:24-alpine AS build
 WORKDIR /app
 
@@ -12,15 +13,21 @@ RUN npm ci --registry=$NPM_REGISTRY
 COPY . .
 RUN npm run build
 
+# ---- 运行阶段：只留生产依赖和构建产物 ----
 FROM node:24-alpine AS runtime
 ENV NODE_ENV=production
 ENV TZ=Asia/Shanghai
 WORKDIR /app
 
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/server/node_modules ./server/node_modules
+ARG NPM_REGISTRY=https://registry.npmjs.org/
+
+# 单独装一份生产依赖，不去搬构建阶段那一堆 dev 依赖和 workspace 布局
+COPY package.json package-lock.json ./
+COPY server/package.json server/
+COPY web/package.json web/
+RUN npm ci --omit=dev --registry=$NPM_REGISTRY && npm cache clean --force
+
 COPY --from=build /app/server/dist ./server/dist
-COPY --from=build /app/server/package.json ./server/package.json
 COPY --from=build /app/web/dist ./web/dist
 
 EXPOSE 3000
