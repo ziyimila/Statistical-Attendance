@@ -11,20 +11,24 @@ import type {
 export class UnauthorizedError extends Error {}
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  // 没有请求体时不能带 Content-Type: application/json，
+  // 否则 Fastify 会以 FST_ERR_CTP_EMPTY_JSON_BODY 拒掉（DELETE 就是这么挂的）
+  const { body, headers, ...rest } = init ?? {};
   const response = await fetch(path, {
     credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
+    ...rest,
+    ...(body ? { body } : {}),
+    headers: { ...(body ? { 'Content-Type': 'application/json' } : {}), ...headers },
   });
   const text = await response.text();
-  const body = text ? JSON.parse(text) : {};
+  const payload = text ? JSON.parse(text) : {};
   if (!response.ok) {
     // 401 分两种情况：会话过期（没登录）和口令输错，用服务端给的话术，别一律说"请先登录"
-    const message = body?.error?.message ?? '请求失败';
+    const message = payload?.error?.message ?? '请求失败';
     if (response.status === 401) throw new UnauthorizedError(message);
     throw new Error(message);
   }
-  return body as T;
+  return payload as T;
 }
 
 export interface RecordPayload {

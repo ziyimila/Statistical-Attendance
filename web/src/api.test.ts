@@ -31,4 +31,21 @@ describe('接口错误提示', () => {
     mockFetch(400, { error: { code: 'bad_request', message: '日期不合法' } });
     await expect(api.deleteRecord('2026-09-31')).rejects.toThrow('日期不合法');
   });
+
+  it('没有请求体的请求不带 Content-Type，否则后端会拒掉 DELETE', async () => {
+    const calls: RequestInit[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url: string, init: RequestInit) => {
+        calls.push(init);
+        return new Response('{"deleted":true}', { status: 200, headers: { 'Content-Type': 'application/json' } });
+      }),
+    );
+
+    await api.deleteRecord('2026-09-16');
+    expect(calls[0].headers).toEqual({});
+
+    await api.getConfig();
+    expect(calls[1].headers).toEqual({});
+  });
 });

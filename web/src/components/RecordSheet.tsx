@@ -186,22 +186,32 @@ export default function RecordSheet({
         )}
 
         <div className="sheet-actions">
-          {!isHoliday ? (
-            <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => void submit()}>
-              {busy ? '保存中…' : '保存'}
-            </button>
-          ) : null}
-          {record ? (
-            <button
-              type="button"
-              className="btn btn-danger btn-block"
-              disabled={busy}
-              onClick={() => void onDelete(date)}
-            >
-              <Icon name="trash" size={18} />
-              删除这条记录
-            </button>
-          ) : null}
+          {/* 删除和保存并排，不用滚到下面才找得到 */}
+          <div className="row">
+            {record ? (
+              <button
+                type="button"
+                className="btn btn-danger"
+                style={{ flex: 1 }}
+                disabled={busy}
+                onClick={() => void onDelete(date)}
+              >
+                <Icon name="trash" size={18} />
+                删除
+              </button>
+            ) : null}
+            {!isHoliday ? (
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ flex: 2 }}
+                disabled={busy}
+                onClick={() => void submit()}
+              >
+                {busy ? '保存中…' : '保存'}
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
     </div>

@@ -20,6 +20,7 @@ interface Props {
   onPresent: (date: string) => void;
   onOpenSheet: (date: string) => void;
   onGoCalendar: () => void;
+  onGoSettings: () => void;
   onUndoUpcoming: () => void;
 }
 
@@ -34,6 +35,7 @@ export default function HomeView({
   onPresent,
   onOpenSheet,
   onGoCalendar,
+  onGoSettings,
   onUndoUpcoming,
 }: Props) {
   const today = config.today;
@@ -65,6 +67,13 @@ export default function HomeView({
         <button type="button" className="notice warn" onClick={onGoCalendar}>
           <Icon name="alert" size={19} />
           <span>{missing.map((date) => shortDate(date)).join('、')} 还没记录，点这里补</span>
+        </button>
+      ) : null}
+
+      {config.termIsSeeded ? (
+        <button type="button" className="notice calm" onClick={onGoSettings}>
+          <Icon name="alert" size={19} />
+          <span>学期起止还是预填的（{shortDate(term?.startDate ?? today)} 开学），点这里按实际开学日核对</span>
         </button>
       ) : null}
 

@@ -609,7 +609,7 @@ ul {
 
 .week-head {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   padding-bottom: 6px;
 }
 
@@ -621,12 +621,15 @@ ul {
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 5px;
 }
 
 .cell {
   aspect-ratio: 1;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
   border-radius: 12px;
   display: grid;
   place-items: center;

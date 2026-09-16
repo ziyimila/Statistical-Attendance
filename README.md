@@ -53,6 +53,19 @@ npm run icons   # 重新生成手机主屏图标（改配色时用）
 
 统计口径是这个应用里唯一"算错了也不会报错"的地方，全部收在 `server/src/domain/stats.ts` 的纯函数里，改口径先改测试。
 
+### 界面体检脚本（可选）
+
+接口测试测不到"面板太高点不到按钮""日历撑破布局"这类问题，所以另有两个用无头浏览器跑的检查，需要先装一次 Playwright：
+
+```bash
+npm i -D playwright && npx playwright install chromium
+
+node scripts/layout-audit.cjs    # 在 390/320 两个宽度下量一遍，列出超出屏幕的元素
+node scripts/flow-check.cjs      # 把打卡 → 改半天 → 删除、请假面板四个选项点一遍
+```
+
+两个脚本都默认连 `http://localhost:3000`，第二个参数是家庭口令（默认 `mom1234`）。
+
 ## 部署到服务器
 
 假设服务器上已经有 MySQL 容器和 Nginx Proxy Manager，两者都在 `app_net` 网络里。

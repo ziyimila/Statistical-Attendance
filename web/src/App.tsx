@@ -236,6 +236,7 @@ export default function App() {
             onPresent={(date) => void save([date], { portion: 'full' }, '记好了，今天去上学')}
             onOpenSheet={setSheetDate}
             onGoCalendar={() => setTab('calendar')}
+            onGoSettings={() => setTab('settings')}
             onUndoUpcoming={() => void undoUpcoming()}
           />
         ) : null}

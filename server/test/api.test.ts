@@ -164,6 +164,24 @@ describe('接口', () => {
     expect(badPortion.statusCode).toBe(400);
   });
 
+  it('删除请求带 JSON 头但没有请求体也能删掉', async () => {
+    await app.inject({
+      method: 'PUT',
+      url: '/api/records/2026-09-15',
+      headers: auth(),
+      payload: { portion: 'full' },
+    });
+
+    // 浏览器端的 fetch 默认会带这个头，早先就是它把 DELETE 判成了 400
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/api/records/2026-09-15',
+      headers: { ...auth(), 'content-type': 'application/json' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().deleted).toBe(true);
+  });
+
   it('首屏配置一次拿齐', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/config', headers: auth() });
     const body = response.json();

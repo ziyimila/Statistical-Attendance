@@ -12,6 +12,7 @@ const config: AppConfig = {
   today: '2026-09-16',
   tomorrow: '2026-09-17',
   who: '妈妈',
+  termIsSeeded: false,
   activeTerm: {
     id: 1,
     name: '2026 秋季学期',
@@ -80,6 +81,7 @@ describe('页面渲染', () => {
         onPresent={noop}
         onOpenSheet={noop}
         onGoCalendar={noop}
+        onGoSettings={noop}
         onUndoUpcoming={noop}
       />,
     );
@@ -101,6 +103,7 @@ describe('页面渲染', () => {
         onPresent={noop}
         onOpenSheet={noop}
         onGoCalendar={noop}
+        onGoSettings={noop}
         onUndoUpcoming={noop}
       />,
     );

@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { addDays, eachDate, isValidDateString } from '../domain/dates.js';
+import { DEFAULT_TERM } from '../repo/seed.js';
 import {
   ATTENDANCE_PORTIONS,
   LEAVE_REASONS,
@@ -92,6 +93,13 @@ export function registerRecordRoutes(app: FastifyInstance, deps: RouteDeps): voi
   /** 一次拿齐首屏需要的东西，省掉好几个来回 */
   app.get('/api/config', async (request) => {
     const today = deps.now();
+    const activeTerm = await deps.repo.getActiveTerm();
+    // 学期起止还是预填的（没改过）就说一声，别让人对着错的日期算统计
+    const termIsSeeded =
+      activeTerm !== null &&
+      activeTerm.name === DEFAULT_TERM.name &&
+      activeTerm.startDate === DEFAULT_TERM.startDate &&
+      activeTerm.endDate === DEFAULT_TERM.endDate;
     const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(
       today.getDate(),
     ).padStart(2, '0')}`;
@@ -99,7 +107,8 @@ export function registerRecordRoutes(app: FastifyInstance, deps: RouteDeps): voi
       today: todayString,
       tomorrow: addDays(todayString, 1),
       who: request.who ?? null,
-      activeTerm: await deps.repo.getActiveTerm(),
+      activeTerm,
+      termIsSeeded,
       terms: await deps.repo.listTerms(),
       holidays: await deps.repo.listHolidays(),
     };

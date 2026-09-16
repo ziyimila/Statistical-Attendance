@@ -73,6 +73,8 @@ export interface AppConfig {
   tomorrow: string;
   who: string | null;
   activeTerm: Term | null;
+  /** 学期起止还是预填的，没核对过 */
+  termIsSeeded: boolean;
   terms: Term[];
   holidays: Holiday[];
 }
