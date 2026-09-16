@@ -48,6 +48,10 @@ export interface StatsResult {
   leaveDays: number;
   /** 其中"只去了半天"的次数 */
   halfDayLeaveCount: number;
+  /** 已经记过的天数（出勤 + 缺勤），出勤率的分母 */
+  recordedDays: number;
+  /** 出勤率 = 出勤 / 已记录天数，0~1；一天都没记时为 0 */
+  attendanceRate: number;
   unrecorded: number;
   unrecordedDates: string[];
   /** 今天是要上学的日子，但还没有打卡 */
@@ -69,6 +73,8 @@ const EMPTY: StatsResult = {
   presentDays: 0,
   leaveDays: 0,
   halfDayLeaveCount: 0,
+  recordedDays: 0,
+  attendanceRate: 0,
   unrecorded: 0,
   unrecordedDates: [],
   pendingToday: false,
@@ -185,6 +191,8 @@ export function computeStats(input: StatsInput): StatsResult {
     presentDays: presentHalves / 2,
     leaveDays: leaveHalves / 2,
     halfDayLeaveCount,
+    recordedDays: (presentHalves + leaveHalves) / 2,
+    attendanceRate: presentHalves + leaveHalves === 0 ? 0 : presentHalves / (presentHalves + leaveHalves),
     unrecorded: unrecordedDates.length,
     unrecordedDates,
     pendingToday,

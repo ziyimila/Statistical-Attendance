@@ -1,24 +1,43 @@
+import { useState } from 'react';
 import Icon from '../components/Icon';
+import ReportCard from '../components/ReportCard';
 import Stat from '../components/Stat';
 import { shortDate } from '../dates';
-import { formatDays, type AppConfig, type StatsResult } from '../types';
+import { formatDays, formatRate, type AppConfig, type AttendanceRecord, type StatsResult } from '../types';
 
 interface Props {
   config: AppConfig;
   month: string;
   monthStats: StatsResult | null;
   termStats: StatsResult | null;
+  records: Map<string, AttendanceRecord>;
 }
 
-export default function StatsView({ config, month, monthStats, termStats }: Props) {
+export default function StatsView({ config, month, monthStats, termStats, records }: Props) {
+  const [showCard, setShowCard] = useState(false);
+  const term = config.activeTerm;
+
   return (
     <div className="stack">
       <header className="topbar">
         <div>
           <h1>统计</h1>
-          <p className="sub">{config.activeTerm?.name ?? '还没设置学期'}</p>
+          <p className="sub">{term?.name ?? '还没设置学期'}</p>
         </div>
       </header>
+
+      {term && termStats ? (
+        <button type="button" className="report-entry" onClick={() => setShowCard(true)}>
+          <span className="report-entry-icon">
+            <Icon name="chart" size={22} />
+          </span>
+          <span className="report-entry-text">
+            <strong>生成学期报告卡</strong>
+            <span className="muted tiny-text">一张 3:4 竖图，可以存下来发出去</span>
+          </span>
+          <Icon name="chevronRight" size={20} />
+        </button>
+      ) : null}
 
       <section className="card">
         <div className="card-head">
@@ -40,6 +59,9 @@ export default function StatsView({ config, month, monthStats, termStats }: Prop
               <span>应上学 {monthStats.schoolDays} 天（截至今天）</span>
               <span>还剩 {monthStats.schoolDaysRemaining} 天</span>
             </div>
+            <p className="muted tiny-text">
+              全勤率 {formatRate(monthStats.attendanceRate)}（按已记录的 {formatDays(monthStats.recordedDays)} 天算）
+            </p>
           </>
         ) : (
           <EmptyState text="这个月还没有数据" />
@@ -50,10 +72,9 @@ export default function StatsView({ config, month, monthStats, termStats }: Prop
         <div className="card-head">
           <span className="card-title">
             本学期累计
-            {config.activeTerm ? (
+            {term ? (
               <span className="hint">
-                {config.activeTerm.startDate.slice(5).replace('-', '/')}—
-                {config.activeTerm.endDate.slice(5).replace('-', '/')}
+                {term.startDate.slice(5).replace('-', '/')}—{term.endDate.slice(5).replace('-', '/')}
               </span>
             ) : null}
           </span>
@@ -72,6 +93,9 @@ export default function StatsView({ config, month, monthStats, termStats }: Prop
               <span>开学至今 {termStats.schoolDays} 个上学日</span>
               <span>还剩 {termStats.schoolDaysRemaining} 天</span>
             </div>
+            <p className="muted tiny-text">
+              全勤率 {formatRate(termStats.attendanceRate)}（按已记录的 {formatDays(termStats.recordedDays)} 天算）
+            </p>
             {termStats.holidayDays > 0 ? (
               <p className="muted tiny-text">
                 另有 {termStats.holidayDays} 天园里放假，不计入应上学日、不算缺勤
@@ -152,6 +176,18 @@ export default function StatsView({ config, month, monthStats, termStats }: Prop
         </div>
         <p className="muted tiny-text">备份是 JSON，可以在设置页导回来恢复数据</p>
       </section>
+
+      {showCard && term && termStats ? (
+        <ReportCard
+          termName={term.name}
+          startDate={term.startDate}
+          endDate={term.endDate}
+          stats={termStats}
+          records={records}
+          holidays={new Set(config.holidays.map((holiday) => holiday.date))}
+          onClose={() => setShowCard(false)}
+        />
+      ) : null}
     </div>
   );
 }

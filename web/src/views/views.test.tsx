@@ -29,6 +29,8 @@ const stats: StatsResult = {
   presentDays: 5.5,
   leaveDays: 1.5,
   halfDayLeaveCount: 1,
+  recordedDays: 7,
+  attendanceRate: 5.5 / 7,
   unrecorded: 1,
   unrecordedDates: ['2026-09-08'],
   pendingToday: false,
@@ -126,7 +128,7 @@ describe('页面渲染', () => {
 
   it('统计：数字、分类小计、明细、导出都在', () => {
     const html = renderToStaticMarkup(
-      <StatsView config={config} month="2026-09" monthStats={stats} termStats={stats} />,
+      <StatsView config={config} month="2026-09" monthStats={stats} termStats={stats} records={records} />,
     );
     expect(html).toContain('本学期累计');
     expect(html).toContain('缺勤分类');
@@ -136,6 +138,8 @@ describe('页面渲染', () => {
     // HTML 里 & 会被转义成 &amp;
     expect(html).toContain('/api/export?format=csv&amp;month=2026-09');
     expect(html).toContain('/api/export?format=json');
+    expect(html).toContain('全勤率 79%');
+    expect(html).toContain('生成学期报告卡');
   });
 
   it('设置：学期、放假安排、口令、数据恢复', () => {

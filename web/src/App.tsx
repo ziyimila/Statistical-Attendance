@@ -252,7 +252,13 @@ export default function App() {
         ) : null}
 
         {tab === 'stats' ? (
-          <StatsView config={config} month={month} monthStats={monthStats} termStats={termStats} />
+          <StatsView
+            config={config}
+            month={month}
+            monthStats={monthStats}
+            termStats={termStats}
+            records={records}
+          />
         ) : null}
 
         {tab === 'settings' ? (

@@ -3,6 +3,7 @@ import Stat from '../components/Stat';
 import { addDays, isWeekend, shortDate } from '../dates';
 import {
   formatDays,
+  formatRate,
   LEAVE_REASON_LABELS,
   PORTION_LABELS,
   type AppConfig,
@@ -158,6 +159,9 @@ export default function HomeView({
               <span>已过 {termStats.schoolDays} 个上学日</span>
               <span>还剩 {termStats.schoolDaysRemaining} 天</span>
             </div>
+            <p className="muted tiny-text">
+              全勤率 {formatRate(termStats.attendanceRate)}（按已记录的 {formatDays(termStats.recordedDays)} 天算）
+            </p>
             {termStats.holidayDays > 0 ? (
               <p className="muted tiny-text">另有 {termStats.holidayDays} 天园里放假，不算缺勤</p>
             ) : null}

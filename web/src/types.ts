@@ -56,6 +56,8 @@ export interface StatsResult {
   presentDays: number;
   leaveDays: number;
   halfDayLeaveCount: number;
+  recordedDays: number;
+  attendanceRate: number;
   unrecorded: number;
   unrecordedDates: string[];
   pendingToday: boolean;
@@ -87,4 +89,8 @@ export const LEAVE_REASONS = Object.keys(LEAVE_REASON_LABELS) as LeaveReason[];
 /** 0.5 天的显示：整数不带小数点，半天显示成 3.5 */
 export function formatDays(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+export function formatRate(value: number): string {
+  return `${Math.round(value * 100)}%`;
 }

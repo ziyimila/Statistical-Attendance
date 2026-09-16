@@ -64,6 +64,9 @@ describe('统计口径', () => {
     expect(result.halfDayLeaveCount).toBe(1);
     expect(result.unrecorded).toBe(0);
     expect(result.pendingToday).toBe(false);
+    // 出勤率按"已记录的日子"算，不让忘记打卡的日子拉低它
+    expect(result.recordedDays).toBe(8);
+    expect(result.attendanceRate).toBeCloseTo(6.5 / 8, 5);
   });
 
   it('出勤加缺勤加未记录加待打卡，正好等于应上学天数', () => {
