@@ -8,10 +8,14 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json' },
     ...init,
   });
-  if (response.status === 401) throw new UnauthorizedError('请先登录');
   const text = await response.text();
   const body = text ? JSON.parse(text) : {};
-  if (!response.ok) throw new Error(body?.error?.message ?? '请求失败');
+  if (!response.ok) {
+    // 401 分两种情况：会话过期（没登录）和口令输错，用服务端给的话术，别一律说"请先登录"
+    const message = body?.error?.message ?? '请求失败';
+    if (response.status === 401) throw new UnauthorizedError(message);
+    throw new Error(message);
+  }
   return body as T;
 }
 
