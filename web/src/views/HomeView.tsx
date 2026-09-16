@@ -83,9 +83,9 @@ export default function HomeView({
         <h2 className="card-title">本学期</h2>
         {termStats ? (
           <div className="numbers">
-            <Number label="出勤" value={termStats.present} tone="present" />
-            <Number label="请假" value={termStats.leave} tone="leave" />
-            <Number label="未记录" value={termStats.unrecorded} tone="muted" />
+            <StatNumber label="出勤" value={termStats.present} tone="present" />
+            <StatNumber label="请假" value={termStats.leave} tone="leave" />
+            <StatNumber label="未记录" value={termStats.unrecorded} tone="muted" />
           </div>
         ) : (
           <p className="muted small">还没有统计数据</p>
@@ -100,7 +100,7 @@ export default function HomeView({
   );
 }
 
-export function Number({ label, value, tone }: { label: string; value: number; tone: string }) {
+export function StatNumber({ label, value, tone }: { label: string; value: number; tone: string }) {
   return (
     <div className={`number ${tone}`}>
       <strong>{value}</strong>

@@ -1,5 +1,5 @@
 import { shortDate } from '../dates';
-import { Number } from './HomeView';
+import { StatNumber } from './HomeView';
 import type { AppConfig, StatsResult } from '../types';
 
 interface Props {
@@ -22,9 +22,9 @@ export default function StatsView({ config, month, monthStats, termStats }: Prop
         {monthStats ? (
           <>
             <div className="numbers">
-              <Number label="出勤" value={monthStats.present} tone="present" />
-              <Number label="请假" value={monthStats.leave} tone="leave" />
-              <Number label="未记录" value={monthStats.unrecorded} tone="muted" />
+              <StatNumber label="出勤" value={monthStats.present} tone="present" />
+              <StatNumber label="请假" value={monthStats.leave} tone="leave" />
+              <StatNumber label="未记录" value={monthStats.unrecorded} tone="muted" />
             </div>
             <p className="muted small">
               本月应上学 {monthStats.schoolDays} 天（截至今天），还剩 {monthStats.schoolDaysRemaining} 天
@@ -40,9 +40,9 @@ export default function StatsView({ config, month, monthStats, termStats }: Prop
         {termStats ? (
           <>
             <div className="numbers">
-              <Number label="出勤" value={termStats.present} tone="present" />
-              <Number label="请假" value={termStats.leave} tone="leave" />
-              <Number label="未记录" value={termStats.unrecorded} tone="muted" />
+              <StatNumber label="出勤" value={termStats.present} tone="present" />
+              <StatNumber label="请假" value={termStats.leave} tone="leave" />
+              <StatNumber label="未记录" value={termStats.unrecorded} tone="muted" />
             </div>
             <p className="muted small">
               开学至今应上学 {termStats.schoolDays} 天，还剩 {termStats.schoolDaysRemaining} 天
