@@ -1,8 +1,12 @@
+# 基础镜像。国内拉不到 docker.io 时，在 .env 里加一行换源即可：
+#   BASE_IMAGE=docker.nju.edu.cn/library/node:24-alpine
+ARG BASE_IMAGE=node:24-alpine
+
 # ---- 构建阶段：编译前端和后端 ----
-FROM node:24-alpine AS build
+FROM ${BASE_IMAGE} AS build
 WORKDIR /app
 
-# 国内服务器可以传 --build-arg NPM_REGISTRY=https://registry.npmmirror.com 加速
+# npm 源，国内也可以换：NPM_REGISTRY=https://registry.npmmirror.com
 ARG NPM_REGISTRY=https://registry.npmjs.org/
 
 COPY package.json package-lock.json ./
@@ -14,7 +18,7 @@ COPY . .
 RUN npm run build
 
 # ---- 运行阶段：只留生产依赖和构建产物 ----
-FROM node:24-alpine AS runtime
+FROM ${BASE_IMAGE} AS runtime
 ENV NODE_ENV=production
 ENV TZ=Asia/Shanghai
 WORKDIR /app

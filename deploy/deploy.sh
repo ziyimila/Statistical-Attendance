@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # 服务器上的一键部署（在仓库根目录执行：bash deploy/deploy.sh）
 #
-#   bash deploy/deploy.sh          构建 + 启动 + 等健康检查
+#   bash deploy/deploy.sh          检查 + 构建 + 启动 + 等健康检查
 #   bash deploy/deploy.sh --pull   先 git pull 再构建
 #
 # 需要先准备好：.env（照 .env.example 填）、app_net 网络、attendance 库
@@ -13,8 +13,9 @@ cd "$ROOT"
 
 fail() { echo "✗ $1" >&2; exit 1; }
 ok() { echo "✓ $1"; }
+warn() { echo "⚠ $1"; }
 
-echo "== 1/6 环境检查 =="
+echo "== 1/7 环境检查 =="
 command -v docker >/dev/null 2>&1 || fail "这台机器上没有 docker"
 docker compose version >/dev/null 2>&1 || fail "docker 没有 compose 插件（docker compose version 跑不通）"
 ok "docker $(docker --version | awk '{print $3}' | tr -d ',')"
@@ -37,44 +38,73 @@ case "$DB_PASSWORD$APP_SECRET$CODE_MOM$CODE_DAD" in
 esac
 ok ".env 看起来填好了（数据库：$DB_USER@$DB_HOST/$DB_NAME）"
 
+if [ -n "${BASE_IMAGE:-}" ] || [ -n "${NPM_REGISTRY:-}" ]; then
+  warn "用了自定义构建源：BASE_IMAGE=${BASE_IMAGE:-默认} NPM_REGISTRY=${NPM_REGISTRY:-默认}"
+fi
+
 echo
-echo "== 2/6 检查数据库能不能连上 =="
+echo "== 2/7 检查数据库 =="
 database_networks="$(docker inspect "$DB_HOST" --format '{{range $name, $conf := .NetworkSettings.Networks}}{{$name}} {{end}}' 2>/dev/null || true)"
 if [ -z "$database_networks" ]; then
   echo "  找不到名为 $DB_HOST 的容器，确认 .env 里的 DB_HOST 写的是容器名"
 elif printf '%s' "$database_networks" | grep -qw app_net; then
   ok "$DB_HOST 也在 app_net 里，容器之间可以直接按名字访问"
 else
-  echo "  ⚠ $DB_HOST 不在 app_net 里（它在：$database_networks）"
-  echo "    应用容器还是能起，但可能连不上；这种情况把 .env 里的 DB_HOST 改成 host.docker.internal"
+  warn "$DB_HOST 不在 app_net 里（它在：$database_networks），把 .env 里的 DB_HOST 改成 host.docker.internal 试试"
 fi
 
 if docker exec "$DB_HOST" mysql -u"$DB_USER" -p"$DB_PASSWORD" -e "USE \`$DB_NAME\`" >/dev/null 2>&1; then
   ok "数据库 $DB_NAME 可以连通"
 else
-  echo "  连不上（可能容器名不对、账号没建、或者密码不对）。继续走，起容器时会自动重试 10 次。"
+  warn "连不上数据库（容器名、账号或密码可能不对）。继续走，起容器时会自动重试 10 次。"
+fi
+
+echo
+echo "== 3/7 检查能不能拉/找到基础镜像 =="
+base_image="${BASE_IMAGE:-node:24-alpine}"
+if docker image inspect "$base_image" >/dev/null 2>&1; then
+  ok "本地已有 $base_image"
+elif docker pull "$base_image" >/dev/null 2>&1; then
+  ok "成功拉取 $base_image"
+else
+  echo
+  echo "拉不到 $base_image。这是国内服务器的常见问题，跟代码无关。三个办法："
+  echo
+  echo "  1) 先看看服务器上有没有现成的 node 镜像可以直接用："
+  echo "       docker images | grep -i node"
+  echo "     有的话，在 .env 里加一行指定它，比如："
+  echo "       BASE_IMAGE=node:22-alpine"
+  echo
+  echo "  2) 换成国内镜像源，在 .env 里加一行："
+  echo "       BASE_IMAGE=docker.nju.edu.cn/library/node:24-alpine"
+  echo "     （也可以试 docker.m.daocloud.io/library/node:24-alpine）"
+  echo
+  echo "  3) 最彻底的是给 docker 配加速器（阿里云容器镜像服务里有专属地址）："
+  echo "       在 /etc/docker/daemon.json 里加 {\"registry-mirrors\":[\"https://你的专属地址.mirror.aliyuncs.com\"]}"
+  echo "       然后 systemctl restart docker"
+  exit 1
 fi
 
 if [ "${1:-}" = "--pull" ]; then
   echo
-  echo "== 3/6 拉最新代码 =="
+  echo "== 4/7 拉最新代码 =="
   git pull --ff-only && ok "代码已更新"
 else
   echo
-  echo "== 3/6 跳过 git pull（要更新代码加 --pull）=="
+  echo "== 4/7 跳过 git pull（要更新代码加 --pull）=="
 fi
 
 echo
-echo "== 4/6 构建镜像（第一次会比较慢）=="
-docker compose build || fail "镜像构建失败，看上面的报错；国内服务器可以试：docker compose build --build-arg NPM_REGISTRY=https://registry.npmmirror.com"
+echo "== 5/7 构建镜像（第一次慢，装前后端依赖）=="
+docker compose build || fail "镜像构建失败，看上面的报错"
 ok "镜像构建完成"
 
 echo
-echo "== 5/6 启动 =="
+echo "== 6/7 启动 =="
 docker compose up -d
 
 echo
-echo "== 6/6 等健康检查 =="
+echo "== 7/7 等健康检查 =="
 healthy=false
 for _ in $(seq 1 20); do
   sleep 3
@@ -90,7 +120,7 @@ done
 docker compose ps
 if [ "$healthy" != true ]; then
   echo
-  echo "⚠ 60 秒内没等到健康状态，自己看一眼：docker compose logs --tail=50 attendance"
+  warn "60 秒内没等到健康状态，自己看一眼：docker compose logs --tail=50 attendance"
 fi
 echo
 echo "接下来：去 Nginx Proxy Manager 加一个 Proxy Host 指向 attendance:3000，然后浏览器打开域名，用 .env 里的 CODE_MOM 登录。"

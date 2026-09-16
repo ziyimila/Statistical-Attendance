@@ -138,12 +138,30 @@ docker compose logs -f attendance
 
 ## 常见问题
 
-**拉不到基础镜像 / 构建特别慢**
-阿里云拉 Docker Hub 经常超时。给 docker 配镜像加速（阿里云容器镜像服务的加速地址），或者构建时换 npm 源：
+**拉不到 node:24-alpine（报 EOF、timeout、failed to resolve source metadata）**
+
+国内服务器拉 Docker Hub 经常不通，跟代码无关。按顺序试这三招：
 
 ```bash
-docker compose build --build-arg NPM_REGISTRY=https://registry.npmmirror.com
+# 1) 先看服务器上有没有现成的 node 镜像
+docker images | grep -i node
+
+# 2) 换国内镜像源：在 .env 里加一行
+BASE_IMAGE=docker.nju.edu.cn/library/node:24-alpine
+# 不行再试：docker.m.daocloud.io/library/node:24-alpine
+
+# 3) 最彻底：给 docker 配加速器（阿里云容器镜像服务里能拿到专属地址）
+#    /etc/docker/daemon.json 里加 "registry-mirrors": ["https://你的地址.mirror.aliyuncs.com"]
+#    然后 systemctl restart docker
 ```
+
+npm 慢（装依赖卡住）是另一回事，在 `.env` 里加这行：
+
+```
+NPM_REGISTRY=https://registry.npmmirror.com
+```
+
+`BASE_IMAGE` 和 `NPM_REGISTRY` 都通过 compose 的 build args 传进去，不用改 Dockerfile。
 
 **容器起来了但一直 unhealthy**
 

@@ -1,6 +1,11 @@
 services:
   attendance:
-    build: .
+    build:
+      context: .
+      args:
+        # 这两个都可以在 .env 里覆盖，不用改 Dockerfile
+        BASE_IMAGE: ${BASE_IMAGE:-node:24-alpine}
+        NPM_REGISTRY: ${NPM_REGISTRY:-https://registry.npmjs.org/}
     image: attendance:latest
     container_name: attendance
     restart: unless-stopped
