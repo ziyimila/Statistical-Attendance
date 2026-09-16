@@ -61,6 +61,8 @@ body {
   font-size: 15px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
+  /* 兜底：万一某处长内容撑破布局，宁可裁掉也不要出现横向滚动 */
+  overflow-x: hidden;
 }
 
 button,
@@ -328,6 +330,10 @@ ul {
   color: var(--muted);
 }
 
+.hero-text {
+  min-width: 0;
+}
+
 .streak {
   display: inline-flex;
   align-items: center;
@@ -460,6 +466,11 @@ ul {
 
 .notice:active {
   transform: scale(0.99);
+}
+
+.notice > span {
+  flex: 1;
+  min-width: 0;
 }
 
 .notice.warn {
@@ -745,6 +756,7 @@ ul {
   padding: 11px 0;
   border-bottom: 1px solid var(--line);
   font-size: 14px;
+  min-width: 0;
 }
 
 .list li:last-child {
@@ -772,6 +784,8 @@ ul {
 .list .note {
   color: var(--muted);
   font-size: 13px;
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -783,6 +797,10 @@ ul {
   font-size: 12px;
   font-weight: 600;
   flex: none;
+  max-width: 46%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .tag.leave {
@@ -890,6 +908,7 @@ ul {
   flex-direction: column;
   gap: 2px;
   flex: 1;
+  min-width: 0;
 }
 
 .report-entry-text strong {
@@ -910,15 +929,13 @@ ul {
   overflow: hidden;
   background: var(--bg);
   box-shadow: inset 0 0 0 1px var(--line);
-  max-height: 54dvh;
-  display: flex;
-  justify-content: center;
+  display: block;
 }
 
 .report-preview canvas {
-  width: auto;
-  max-width: 100%;
-  max-height: 54dvh;
+  /* 按宽度等比缩放；面板本身可以滚，不怕高 */
+  width: 100%;
+  height: auto;
   display: block;
 }
 
@@ -930,6 +947,7 @@ ul {
 /* ---------- 表单 ---------- */
 .input {
   width: 100%;
+  min-width: 0;
   border-radius: var(--r-md);
   background: #f7f4ef;
   box-shadow: inset 0 0 0 1px var(--line);
@@ -948,6 +966,7 @@ ul {
   display: flex;
   gap: 10px;
   align-items: center;
+  min-width: 0;
 }
 
 .field {
@@ -955,6 +974,7 @@ ul {
   display: flex;
   flex-direction: column;
   gap: 5px;
+  min-width: 0;
 }
 
 /* ---------- 底部抽屉 ---------- */
@@ -968,6 +988,9 @@ ul {
   background: rgba(32, 27, 20, 0.32);
   backdrop-filter: blur(2px);
   animation: fade 0.22s var(--ease) both;
+  /* 面板比屏幕高时，外层也能滚，保证顶部的关闭按钮够得着 */
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 @keyframes fade {
@@ -979,6 +1002,10 @@ ul {
 .sheet {
   width: 100%;
   max-width: 520px;
+  max-height: 92vh;
+  max-height: 92dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   background: var(--surface);
   border-radius: 24px 24px 0 0;
   box-shadow: var(--shadow-3);
@@ -1282,4 +1309,37 @@ ul {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.6;
+}
+
+/* ---------- 小屏手机（iPhone SE 这类 320~375 宽） ---------- */
+@media (max-width: 375px) {
+  .screen {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .card,
+  .today {
+    padding: 15px;
+  }
+
+  .choice {
+    padding: 10px 12px;
+  }
+
+  .choice strong {
+    font-size: 14px;
+  }
+
+  .list .date {
+    min-width: 72px;
+  }
+
+  .stat strong {
+    font-size: 23px;
+  }
+
+  .stepper {
+    padding-left: 12px;
+  }
 }
