@@ -47,6 +47,8 @@ export const api = {
   stats: (scope: 'month' | 'term', month?: string) =>
     request<{ stats: StatsResult }>(`/api/stats?scope=${scope}${month ? `&month=${month}` : ''}`).then((r) => r.stats),
 
+  createTerm: (term: { name: string; startDate: string; endDate: string; isActive?: boolean }) =>
+    request<{ term: Term }>('/api/terms', { method: 'POST', body: JSON.stringify(term) }).then((r) => r.term),
   updateTerm: (id: number, patch: Partial<Omit<Term, 'id'>>) =>
     request<{ term: Term }>(`/api/terms/${id}`, { method: 'PUT', body: JSON.stringify(patch) }).then((r) => r.term),
   addHoliday: (date: string, label: string) =>

@@ -120,7 +120,7 @@ describe('页面渲染', () => {
       <SettingsView config={config} onReload={async () => {}} onLogout={async () => {}} />,
     );
     expect(html).toContain('当前学期');
-    expect(html).toContain('2026-09-25');
+    expect(html).toContain('2026/09/25');
     expect(html).toContain('保存口令');
   });
 

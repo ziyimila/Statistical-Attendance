@@ -1,7 +1,14 @@
 import { useState } from 'react';
 import type { RecordPayload } from '../api';
 import { fullDate, nextSchoolDays, shortDate } from '../dates';
-import { LEAVE_REASONS, LEAVE_REASON_LABELS, type AppConfig, type AttendanceRecord, type LeaveReason } from '../types';
+import {
+  LEAVE_REASONS,
+  LEAVE_REASON_LABELS,
+  type AppConfig,
+  type AttendanceRecord,
+  type LeaveReason,
+} from '../types';
+import Icon from './Icon';
 
 interface Props {
   date: string;
@@ -35,13 +42,15 @@ export default function RecordSheet({ date, record, config, busy, onClose, onSav
   return (
     <div className="sheet-backdrop" onClick={onClose} role="presentation">
       <div className="sheet" onClick={(event) => event.stopPropagation()} role="dialog" aria-modal="true">
+        <span className="sheet-grip" />
+
         <header className="sheet-head">
           <div>
             <h2>{fullDate(date)}</h2>
-            {record?.byName ? <p className="muted small">{record.byName}记的</p> : null}
+            {record?.byName ? <p className="muted tiny-text">{record.byName}记的</p> : null}
           </div>
-          <button type="button" className="ghost" onClick={onClose}>
-            关闭
+          <button type="button" className="icon-btn" aria-label="关闭" onClick={onClose}>
+            <Icon name="close" size={18} />
           </button>
         </header>
 
@@ -82,29 +91,49 @@ export default function RecordSheet({ date, record, config, busy, onClose, onSav
             />
 
             <div className="stepper">
-              <span>请几天</span>
+              <span className="small muted">请几天</span>
               <div className="stepper-control">
-                <button type="button" onClick={() => setDays((value) => Math.max(1, value - 1))} disabled={days <= 1}>
-                  −
+                <button
+                  type="button"
+                  className="round-btn"
+                  aria-label="少一天"
+                  onClick={() => setDays((value) => Math.max(1, value - 1))}
+                  disabled={days <= 1}
+                >
+                  <Icon name="minus" size={17} />
                 </button>
                 <strong>{days} 天</strong>
-                <button type="button" onClick={() => setDays((value) => Math.min(7, value + 1))} disabled={days >= 7}>
-                  ＋
+                <button
+                  type="button"
+                  className="round-btn"
+                  aria-label="多一天"
+                  onClick={() => setDays((value) => Math.min(7, value + 1))}
+                  disabled={days >= 7}
+                >
+                  <Icon name="plus" size={17} />
                 </button>
               </div>
             </div>
             {dates.length > 1 ? (
-              <p className="muted small">将标记：{dates.map((item) => shortDate(item)).join('、')}（跳过周末和节假日）</p>
+              <p className="muted tiny-text">
+                将标记：{dates.map((item) => shortDate(item)).join('、')}（跳过周末和节假日）
+              </p>
             ) : null}
           </>
         ) : null}
 
         <div className="sheet-actions">
-          <button type="button" className="primary" disabled={busy} onClick={() => void submit()}>
+          <button type="button" className="btn btn-primary btn-block" disabled={busy} onClick={() => void submit()}>
             {busy ? '保存中…' : '保存'}
           </button>
           {record ? (
-            <button type="button" className="danger" disabled={busy} onClick={() => void onDelete(date)}>
+            <button
+              type="button"
+              className="btn btn-danger btn-block"
+              disabled={busy}
+              onClick={() => void onDelete(date)}
+            >
+              <Icon name="trash" size={18} />
               删除这条记录
             </button>
           ) : null}

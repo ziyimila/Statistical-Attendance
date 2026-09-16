@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { api } from '../api';
+import Icon from '../components/Icon';
 import { weekdayLabel } from '../dates';
-import type { AppConfig } from '../types';
+import type { AppConfig, Term } from '../types';
 
 interface Props {
   config: AppConfig;
@@ -27,15 +28,22 @@ export default function SettingsView({ config, onReload, onLogout }: Props) {
 
   return (
     <div className="stack">
-      <header className="page-head">
-        <h1>设置</h1>
-        <p className="muted small">当前身份：{config.who ?? '未知'}</p>
+      <header className="topbar">
+        <div>
+          <h1>设置</h1>
+          <p className="sub">当前身份：{config.who ?? '未知'}</p>
+        </div>
       </header>
 
-      {message ? <div className="notice quiet">{message}</div> : null}
+      {message ? (
+        <div className="notice calm">
+          <Icon name="check" size={19} />
+          <span>{message}</span>
+        </div>
+      ) : null}
 
+      <p className="group-title">学期</p>
       <section className="card">
-        <h2 className="card-title">学期</h2>
         {config.terms.map((term) => (
           <TermRow
             key={term.id}
@@ -49,8 +57,11 @@ export default function SettingsView({ config, onReload, onLogout }: Props) {
           />
         ))}
 
-        <details className="more">
-          <summary>新增一个学期</summary>
+        <details className="disclosure">
+          <summary>
+            <Icon name="plus" size={16} />
+            新增一个学期
+          </summary>
           <input
             className="input"
             placeholder="名称，例如 2027 春季学期"
@@ -73,15 +84,11 @@ export default function SettingsView({ config, onReload, onLogout }: Props) {
           </div>
           <button
             type="button"
-            className="ghost button"
+            className="btn btn-soft btn-block"
             disabled={!newTerm.name || !newTerm.startDate || !newTerm.endDate}
             onClick={() =>
               void run(async () => {
-                await fetch('/api/terms', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(newTerm),
-                });
+                await api.createTerm(newTerm);
                 setNewTerm({ name: '', startDate: '', endDate: '' });
                 await onReload();
               }, '学期已新增')
@@ -92,10 +99,10 @@ export default function SettingsView({ config, onReload, onLogout }: Props) {
         </details>
       </section>
 
+      <p className="group-title">放假安排</p>
       <section className="card">
-        <h2 className="card-title">节假日</h2>
         <p className="muted small">
-          周末自动跳过，这里只填幼儿园另外放假的日子（国庆、元旦、园里活动等）。预填的是国定假期，请按幼儿园通知核对。
+          周末自动跳过，这里只填幼儿园另外放假的日子。预填的是国定假期，请按老师的通知核对。
         </p>
         <div className="row">
           <input
@@ -113,7 +120,7 @@ export default function SettingsView({ config, onReload, onLogout }: Props) {
         </div>
         <button
           type="button"
-          className="ghost button"
+          className="btn btn-soft btn-block"
           disabled={!holidayDate}
           onClick={() =>
             void run(async () => {
@@ -127,16 +134,16 @@ export default function SettingsView({ config, onReload, onLogout }: Props) {
           添加
         </button>
 
-        <ul className="details holidays">
+        <ul className="list">
           {config.holidays.map((holiday) => (
             <li key={holiday.date}>
-              <span className="detail-date">
-                {holiday.date} {weekdayLabel(holiday.date)}
-              </span>
-              <span className="detail-reason">{holiday.label}</span>
+              <span className="date">{holiday.date.replace(/-/g, '/')}</span>
+              <span className="weekday">{weekdayLabel(holiday.date).slice(1)}</span>
+              <span className="tag calm">{holiday.label}</span>
               <button
                 type="button"
-                className="ghost tiny"
+                className="btn btn-ghost tiny-text"
+                style={{ marginLeft: 'auto' }}
                 onClick={() =>
                   void run(async () => {
                     await api.deleteHoliday(holiday.date);
@@ -151,8 +158,9 @@ export default function SettingsView({ config, onReload, onLogout }: Props) {
         </ul>
       </section>
 
+      <p className="group-title">家庭口令</p>
       <section className="card">
-        <h2 className="card-title">我的口令</h2>
+        <p className="muted small">改的是你自己的口令（当前是 {config.who ?? '未知'}），改完下次登录生效。</p>
         <input
           className="input"
           type="password"
@@ -162,7 +170,7 @@ export default function SettingsView({ config, onReload, onLogout }: Props) {
         />
         <button
           type="button"
-          className="ghost button"
+          className="btn btn-soft btn-block"
           disabled={passcode.length < 4}
           onClick={() =>
             void run(async () => {
@@ -176,7 +184,8 @@ export default function SettingsView({ config, onReload, onLogout }: Props) {
       </section>
 
       <section className="card">
-        <button type="button" className="danger" onClick={() => void onLogout()}>
+        <button type="button" className="btn btn-danger btn-block" onClick={() => void onLogout()}>
+          <Icon name="logout" size={18} />
           退出登录
         </button>
       </section>
@@ -188,7 +197,7 @@ function TermRow({
   term,
   onSave,
 }: {
-  term: { id: number; name: string; startDate: string; endDate: string; isActive: boolean };
+  term: Term;
   onSave: (patch: { name?: string; startDate?: string; endDate?: string; isActive?: boolean }) => Promise<void>;
 }) {
   const [start, setStart] = useState(term.startDate);
@@ -199,24 +208,30 @@ function TermRow({
     <div className="term">
       <div className="term-head">
         <strong>{term.name}</strong>
-        {term.isActive ? <span className="badge">当前学期</span> : (
-          <button type="button" className="ghost tiny" onClick={() => void onSave({ isActive: true })}>
+        {term.isActive ? (
+          <span className="badge-current">当前学期</span>
+        ) : (
+          <button type="button" className="btn btn-ghost tiny-text" onClick={() => void onSave({ isActive: true })}>
             设为当前
           </button>
         )}
       </div>
       <div className="row">
         <label className="field">
-          <span className="muted small">开学日</span>
+          <span className="muted tiny-text">开学日</span>
           <input className="input" type="date" value={start} onChange={(event) => setStart(event.target.value)} />
         </label>
         <label className="field">
-          <span className="muted small">结束日</span>
+          <span className="muted tiny-text">结束日</span>
           <input className="input" type="date" value={end} onChange={(event) => setEnd(event.target.value)} />
         </label>
       </div>
       {dirty ? (
-        <button type="button" className="primary small-button" onClick={() => void onSave({ startDate: start, endDate: end })}>
+        <button
+          type="button"
+          className="btn btn-primary btn-block"
+          onClick={() => void onSave({ startDate: start, endDate: end })}
+        >
           保存学期日期
         </button>
       ) : null}

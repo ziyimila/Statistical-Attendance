@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { UnauthorizedError, api, type RecordPayload } from './api';
+import Icon, { type IconName } from './components/Icon';
 import RecordSheet from './components/RecordSheet';
 import CalendarView from './views/CalendarView';
 import HomeView from './views/HomeView';
@@ -10,11 +11,11 @@ import type { AppConfig, AttendanceRecord, StatsResult } from './types';
 
 type Tab = 'home' | 'calendar' | 'stats' | 'settings';
 
-const TABS: Array<{ key: Tab; label: string; icon: string }> = [
-  { key: 'home', label: '打卡', icon: '✅' },
-  { key: 'calendar', label: '日历', icon: '🗓' },
-  { key: 'stats', label: '统计', icon: '📊' },
-  { key: 'settings', label: '设置', icon: '⚙️' },
+const TABS: Array<{ key: Tab; label: string; icon: IconName }> = [
+  { key: 'home', label: '打卡', icon: 'check' },
+  { key: 'calendar', label: '日历', icon: 'calendar' },
+  { key: 'stats', label: '统计', icon: 'chart' },
+  { key: 'settings', label: '设置', icon: 'settings' },
 ];
 
 export default function App() {
@@ -116,7 +117,17 @@ export default function App() {
   };
 
   if (phase === 'loading') {
-    return <div className="screen center muted">正在打开…</div>;
+    return (
+      <div className="app">
+        <main className="screen">
+          <div className="stack">
+            <div className="skeleton skeleton-short" />
+            <div className="skeleton skeleton-tall" />
+            <div className="skeleton skeleton-short" />
+          </div>
+        </main>
+      </div>
+    );
   }
 
   if (phase === 'login') {
@@ -128,7 +139,7 @@ export default function App() {
             void bootstrap();
           }}
         />
-        {toast ? <div className="toast">{toast}</div> : null}
+        {toast ? <Toast message={toast} /> : null}
       </>
     );
   }
@@ -179,17 +190,19 @@ export default function App() {
       </main>
 
       <nav className="tabbar">
-        {TABS.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            className={tab === item.key ? 'tab active' : 'tab'}
-            onClick={() => setTab(item.key)}
-          >
-            <span aria-hidden>{item.icon}</span>
-            {item.label}
-          </button>
-        ))}
+        <div className="tabbar-inner">
+          {TABS.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              className={tab === item.key ? 'tab active' : 'tab'}
+              onClick={() => setTab(item.key)}
+            >
+              <Icon name={item.icon} size={21} />
+              {item.label}
+            </button>
+          ))}
+        </div>
       </nav>
 
       {sheetDate ? (
@@ -204,7 +217,16 @@ export default function App() {
         />
       ) : null}
 
-      {toast ? <div className="toast">{toast}</div> : null}
+      {toast ? <Toast message={toast} /> : null}
+    </div>
+  );
+}
+
+function Toast({ message }: { message: string }) {
+  return (
+    <div className="toast">
+      <Icon name="check" size={17} />
+      {message}
     </div>
   );
 }
