@@ -57,46 +57,17 @@ npm run icons   # 重新生成手机主屏图标（改配色时用）
 
 假设服务器上已经有 MySQL 容器和 Nginx Proxy Manager，两者都在 `app_net` 网络里。
 
-### 1. 建库和账号
-
-在服务器上以 MySQL root 身份执行 `deploy/init-db.sql`（记得先把里面的密码改掉）：
+完整的部署步骤（含建库、Nginx Proxy Manager 配置、排障）见 [deploy/DEPLOY.md](deploy/DEPLOY.md)。服务器上一条命令搞定：
 
 ```bash
-docker exec -i mysql mysql -uroot -p < deploy/init-db.sql
-```
-
-### 2. 准备配置
-
-```bash
-cp .env.example .env
-```
-
-填这几项：`DB_PASSWORD`、`APP_SECRET`（一串随机字符）、`CODE_MOM`、`CODE_DAD`。`DB_HOST` 保持 `mysql`，`DB_NAME` 保持 `attendance`。
-
-### 3. 起容器
-
-```bash
-docker compose up -d --build
-docker compose logs -f attendance
+bash deploy/deploy.sh
 ```
 
 首次启动会自动建表，并预填一份 2026 秋季学期（开学日 9 月 7 日）和国定节假日——**请到设置页按幼儿园的实际通知核对**。
 
 容器只在 `app_net` 内网监听 3000，不会占用宿主机端口。
 
-### 4. Nginx Proxy Manager
-
-新增一个 Proxy Host：
-
-- Domain：你的子域名，例如 `attendance.example.com`
-- Scheme：`http`
-- Forward Hostname：`attendance`
-- Forward Port：`3000`
-- 打开 SSL，申请 Let's Encrypt 证书，勾上 Force SSL
-
-### 5. 手机加到主屏
-
-用手机浏览器打开域名 → 输入家庭口令 → 分享菜单里选"添加到主屏幕"。之后从桌面图标进入，全屏无地址栏，和 App 一样。
+然后在 Nginx Proxy Manager 里加一个 Proxy Host（域名 → `http` → `attendance:3000`，申请证书、强制 HTTPS），手机上打开域名后选"添加到主屏幕"，就是个全屏 App 了。
 
 ## 目录结构
 
