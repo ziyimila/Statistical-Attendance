@@ -39,6 +39,16 @@ ok ".env 看起来填好了（数据库：$DB_USER@$DB_HOST/$DB_NAME）"
 
 echo
 echo "== 2/6 检查数据库能不能连上 =="
+database_networks="$(docker inspect "$DB_HOST" --format '{{range $name, $conf := .NetworkSettings.Networks}}{{$name}} {{end}}' 2>/dev/null || true)"
+if [ -z "$database_networks" ]; then
+  echo "  找不到名为 $DB_HOST 的容器，确认 .env 里的 DB_HOST 写的是容器名"
+elif printf '%s' "$database_networks" | grep -qw app_net; then
+  ok "$DB_HOST 也在 app_net 里，容器之间可以直接按名字访问"
+else
+  echo "  ⚠ $DB_HOST 不在 app_net 里（它在：$database_networks）"
+  echo "    应用容器还是能起，但可能连不上；这种情况把 .env 里的 DB_HOST 改成 host.docker.internal"
+fi
+
 if docker exec "$DB_HOST" mysql -u"$DB_USER" -p"$DB_PASSWORD" -e "USE \`$DB_NAME\`" >/dev/null 2>&1; then
   ok "数据库 $DB_NAME 可以连通"
 else

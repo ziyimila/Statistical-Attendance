@@ -9,6 +9,9 @@ services:
       TZ: Asia/Shanghai
     networks:
       - app_net
+    # 万一 MySQL 不在 app_net 上，还可以用 host.docker.internal 连宿主机映射出来的 3306
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/api/health || exit 1"]
       interval: 30s

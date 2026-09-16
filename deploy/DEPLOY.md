@@ -35,10 +35,18 @@ cd attendance
 ```bash
 cp deploy/init-db.sql /tmp/init-db.sql
 vi /tmp/init-db.sql                    # 把 '改成你的密码' 换成真实密码
-docker exec -i mysql mysql -uroot -p < /tmp/init-db.sql
+docker exec -i mysql_server mysql -uroot -p < /tmp/init-db.sql
 ```
 
-如果 MySQL 容器不叫 `mysql`，把上面的名字换掉，同时 `.env` 里的 `DB_HOST` 也要跟着改。
+这台服务器上 MySQL 的容器名是 `mysql_server`（镜像 mysql:8.0），`.env` 里的 `DB_HOST` 已经按这个名字预填好了。
+
+顺手确认一下它在哪个网络里：
+
+```bash
+docker inspect mysql_server --format '{{range $k, $v := .NetworkSettings.Networks}}{{$k}} {{end}}'
+```
+
+输出里有 `app_net` 就行。如果没有，把 `.env` 里的 `DB_HOST` 改成 `host.docker.internal`（compose 里已经配好了这个别名）。
 
 ## 三、填 .env
 
@@ -50,7 +58,7 @@ vi .env
 要改的只有这几项：
 
 ```
-DB_HOST=mysql             # MySQL 的容器名
+DB_HOST=mysql_server      # MySQL 的容器名
 DB_PASSWORD=你的数据库密码
 DB_NAME=attendance
 APP_SECRET=一串随机字符     # 可以用 openssl rand -hex 32 生成
