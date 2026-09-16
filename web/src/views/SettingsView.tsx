@@ -16,6 +16,24 @@ export default function SettingsView({ config, onReload, onLogout }: Props) {
   const [holidayLabel, setHolidayLabel] = useState('');
   const [passcode, setPasscode] = useState('');
   const [newTerm, setNewTerm] = useState({ name: '', startDate: '', endDate: '' });
+  const [importing, setImporting] = useState(false);
+
+  const importBackup = async (file: File) => {
+    setImporting(true);
+    try {
+      const parsed = JSON.parse(await file.text()) as Record<string, unknown>;
+      const result = await api.importBackup({
+        records: (parsed.records ?? []) as never,
+        holidays: (parsed.holidays ?? []) as never,
+      });
+      setMessage(`已导入 ${result.imported.records} 条记录、${result.imported.holidays} 个放假日`);
+      await onReload();
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : '导入失败，检查一下文件是不是这个应用导出的');
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const run = async (action: () => Promise<void>, ok: string) => {
     try {
@@ -181,6 +199,27 @@ export default function SettingsView({ config, onReload, onLogout }: Props) {
         >
           保存口令
         </button>
+      </section>
+
+      <p className="group-title">数据</p>
+      <section className="card">
+        <p className="muted small">
+          把之前导出的 JSON 备份导回来。按日期合并：同一天以备份里的为准，不会删掉别的东西。学期日期和口令不在备份里，需要自己重新设。
+        </p>
+        <label className="btn btn-soft btn-block">
+          <Icon name="download" size={18} />
+          {importing ? '导入中…' : '选择备份文件导入'}
+          <input
+            type="file"
+            accept="application/json,.json"
+            hidden
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) void importBackup(file);
+              event.target.value = '';
+            }}
+          />
+        </label>
       </section>
 
       <section className="card">

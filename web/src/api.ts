@@ -1,4 +1,12 @@
-import type { AppConfig, AttendanceRecord, Holiday, LeaveReason, StatsResult, Term } from './types';
+import type {
+  AppConfig,
+  AttendancePortion,
+  AttendanceRecord,
+  Holiday,
+  LeaveReason,
+  StatsResult,
+  Term,
+} from './types';
 
 export class UnauthorizedError extends Error {}
 
@@ -20,7 +28,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export interface RecordPayload {
-  status: 'present' | 'leave';
+  portion: AttendancePortion;
   reason?: LeaveReason | null;
   note?: string | null;
 }
@@ -43,9 +51,19 @@ export const api = {
       body: JSON.stringify({ dates, ...payload }),
     }).then((r) => r.records),
   deleteRecord: (date: string) => request<{ deleted: boolean }>(`/api/records/${date}`, { method: 'DELETE' }),
+  deleteRecords: (dates: string[]) =>
+    request<{ deleted: number }>('/api/records/bulk-delete', {
+      method: 'POST',
+      body: JSON.stringify({ dates }),
+    }).then((r) => r.deleted),
 
   stats: (scope: 'month' | 'term', month?: string) =>
     request<{ stats: StatsResult }>(`/api/stats?scope=${scope}${month ? `&month=${month}` : ''}`).then((r) => r.stats),
+  importBackup: (payload: { records: AttendanceRecord[]; holidays: Holiday[] }) =>
+    request<{ imported: { records: number; holidays: number } }>('/api/import', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   createTerm: (term: { name: string; startDate: string; endDate: string; isActive?: boolean }) =>
     request<{ term: Term }>('/api/terms', { method: 'POST', body: JSON.stringify(term) }).then((r) => r.term),

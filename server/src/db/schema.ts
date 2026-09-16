@@ -5,7 +5,7 @@
 export const SCHEMA_STATEMENTS: string[] = [
   `CREATE TABLE IF NOT EXISTS records (
      date DATE NOT NULL,
-     status ENUM('present','leave') NOT NULL,
+     portion ENUM('full','morning','afternoon','absent') NOT NULL,
      reason VARCHAR(16) NULL,
      note VARCHAR(200) NULL,
      by_name VARCHAR(32) NULL,

@@ -1,7 +1,14 @@
 import Icon from '../components/Icon';
 import Stat from '../components/Stat';
 import { addDays, isWeekend, shortDate } from '../dates';
-import { LEAVE_REASON_LABELS, type AppConfig, type AttendanceRecord, type StatsResult } from '../types';
+import {
+  formatDays,
+  LEAVE_REASON_LABELS,
+  PORTION_LABELS,
+  type AppConfig,
+  type AttendanceRecord,
+  type StatsResult,
+} from '../types';
 
 interface Props {
   config: AppConfig;
@@ -12,6 +19,7 @@ interface Props {
   onPresent: (date: string) => void;
   onOpenSheet: (date: string) => void;
   onGoCalendar: () => void;
+  onUndoUpcoming: () => void;
 }
 
 const WEEKDAY_CHARS = '日一二三四五六';
@@ -25,6 +33,7 @@ export default function HomeView({
   onPresent,
   onOpenSheet,
   onGoCalendar,
+  onUndoUpcoming,
 }: Props) {
   const today = config.today;
   const record = records.get(today) ?? null;
@@ -62,12 +71,15 @@ export default function HomeView({
         <div className="notice calm">
           <Icon name="calendarMinus" size={19} />
           <span>已提前请假：{upcoming.map((date) => shortDate(date)).join('、')}</span>
+          <button type="button" className="btn btn-ghost tiny-text" onClick={onUndoUpcoming}>
+            撤销
+          </button>
         </div>
       ) : null}
 
       <section className="card today">
         <div className="today-head">
-          <i className={record ? `dot ${record.status}` : 'dot'} />
+          <i className={record ? `dot ${toneOf(record)}` : 'dot'} />
           <span className="label">{record ? '今天的记录' : '今日打卡'}</span>
           <span className="when">{record?.byName ? `${record.byName}记的` : '点一下就好'}</span>
         </div>
@@ -75,13 +87,13 @@ export default function HomeView({
         {record ? (
           <>
             <div className="hero-status">
-              <div className={`hero-badge ${record.status}`}>
-                <Icon name={record.status === 'present' ? 'check' : 'calendarMinus'} size={26} />
+              <div className={`hero-badge ${toneOf(record)}`}>
+                <Icon name={record.portion === 'full' ? 'check' : 'calendarMinus'} size={26} />
               </div>
               <div className="hero-text">
-                <strong>{record.status === 'present' ? '今天去上学了' : '今天请假'}</strong>
+                <strong>{heroTitle(record)}</strong>
                 <span>
-                  {record.status === 'leave'
+                  {record.portion !== 'full'
                     ? `${record.reason ? LEAVE_REASON_LABELS[record.reason] : '请假'}${
                         record.note ? ` · ${record.note}` : ''
                       }`
@@ -135,9 +147,9 @@ export default function HomeView({
         {termStats ? (
           <>
             <div className="stats-row">
-              <Stat label="出勤" value={termStats.present} tone="present" />
-              <Stat label="请假" value={termStats.leave} tone="leave" />
-              <Stat label="未记录" value={termStats.unrecorded} tone="muted" />
+              <Stat label="出勤" value={formatDays(termStats.presentDays)} tone="present" />
+              <Stat label="缺勤" value={formatDays(termStats.leaveDays)} tone="leave" />
+              <Stat label="未记录" value={String(termStats.unrecorded)} tone="muted" />
             </div>
             <div className="progress">
               <i style={{ width: `${progressOf(termStats)}%` }} />
@@ -146,6 +158,9 @@ export default function HomeView({
               <span>已过 {termStats.schoolDays} 个上学日</span>
               <span>还剩 {termStats.schoolDaysRemaining} 天</span>
             </div>
+            {termStats.holidayDays > 0 ? (
+              <p className="muted tiny-text">另有 {termStats.holidayDays} 天园里放假，不算缺勤</p>
+            ) : null}
           </>
         ) : (
           <div className="empty-state">
@@ -163,6 +178,17 @@ export default function HomeView({
 function progressOf(stats: StatsResult): number {
   const total = stats.schoolDays + stats.schoolDaysRemaining;
   return total === 0 ? 0 : Math.round((stats.schoolDays / total) * 100);
+}
+
+function heroTitle(record: AttendanceRecord): string {
+  if (record.portion === 'full') return '今天去上学了';
+  if (record.portion === 'absent') return '今天请假';
+  return `今天${PORTION_LABELS[record.portion]}`;
+}
+
+/** 全天在园和只去半天都用绿色，全天没去用黄色 */
+function toneOf(record: AttendanceRecord): 'present' | 'leave' {
+  return record.portion === 'absent' ? 'leave' : 'present';
 }
 
 function timestamp(value: string): number {
@@ -187,7 +213,7 @@ function presentStreak(records: Map<string, AttendanceRecord>, today: string, ho
       cursor = addDays(cursor, -1);
       continue;
     }
-    if (records.get(cursor)?.status === 'present') {
+    if (records.get(cursor)?.portion === 'full') {
       streak += 1;
       cursor = addDays(cursor, -1);
       continue;

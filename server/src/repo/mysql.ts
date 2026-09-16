@@ -13,7 +13,7 @@ export interface MysqlOptions {
 
 interface RecordRow extends RowDataPacket {
   date: string;
-  status: 'present' | 'leave';
+  portion: 'full' | 'morning' | 'afternoon' | 'absent';
   reason: LeaveReason | null;
   note: string | null;
   by_name: string | null;
@@ -72,7 +72,7 @@ export class MysqlRepo implements Repo {
 
   async listRecords(from: string, to: string): Promise<AttendanceRecord[]> {
     const [rows] = await this.pool.query<RecordRow[]>(
-      `SELECT date, status, reason, note, by_name, updated_at
+      `SELECT date, portion, reason, note, by_name, updated_at
          FROM records
         WHERE date BETWEEN ? AND ?
         ORDER BY date`,
@@ -83,13 +83,13 @@ export class MysqlRepo implements Repo {
 
   async upsertRecord(input: UpsertInput, byName: string): Promise<AttendanceRecord> {
     // 用 REPLACE 而不是 ON DUPLICATE KEY UPDATE：语义清楚，且不依赖 MySQL 8.0.19+ 的别名语法
-    const reason = input.status === 'leave' ? (input.reason ?? null) : null;
+    const reason = input.portion === 'full' ? null : (input.reason ?? null);
     await this.pool.query(
-      'REPLACE INTO records (date, status, reason, note, by_name, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
-      [input.date, input.status, reason, input.note ?? null, byName],
+      'REPLACE INTO records (date, portion, reason, note, by_name, updated_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)',
+      [input.date, input.portion, reason, input.note ?? null, byName],
     );
     const [rows] = await this.pool.query<RecordRow[]>(
-      'SELECT date, status, reason, note, by_name, updated_at FROM records WHERE date = ?',
+      'SELECT date, portion, reason, note, by_name, updated_at FROM records WHERE date = ?',
       [input.date],
     );
     return toRecord(rows[0]);
@@ -98,6 +98,16 @@ export class MysqlRepo implements Repo {
   async deleteRecord(date: string): Promise<boolean> {
     const [result] = await this.pool.query<mysql.ResultSetHeader>('DELETE FROM records WHERE date = ?', [date]);
     return result.affectedRows > 0;
+  }
+
+  async deleteRecords(dates: string[]): Promise<number> {
+    if (dates.length === 0) return 0;
+    const placeholders = dates.map(() => '?').join(',');
+    const [result] = await this.pool.query<mysql.ResultSetHeader>(
+      `DELETE FROM records WHERE date IN (${placeholders})`,
+      dates,
+    );
+    return result.affectedRows;
   }
 
   async listHolidays(): Promise<Holiday[]> {
@@ -174,7 +184,7 @@ function toRecord(row: RecordRow | undefined): AttendanceRecord {
   if (!row) throw new Error('记录不存在');
   return {
     date: row.date,
-    status: row.status,
+    portion: row.portion,
     reason: row.reason ?? null,
     note: row.note ?? null,
     byName: row.by_name ?? null,

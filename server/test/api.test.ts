@@ -18,6 +18,8 @@ const today = new Date(2026, 8, 16, 8, 0, 0);
 let app: FastifyInstance;
 let cookie: string;
 
+const auth = () => ({ cookie });
+
 async function login(code: string) {
   return app.inject({ method: 'POST', url: '/api/login', payload: { code } });
 }
@@ -46,6 +48,7 @@ describe('接口', () => {
   it('口令不对时不发会话', async () => {
     const response = await login('wrong');
     expect(response.statusCode).toBe(401);
+    expect(response.json().error.message).toBe('口令不对');
     expect(response.cookies).toHaveLength(0);
   });
 
@@ -53,17 +56,17 @@ describe('接口', () => {
     const put = await app.inject({
       method: 'PUT',
       url: '/api/records/2026-09-14',
-      headers: { cookie },
-      payload: { status: 'leave', reason: 'sick', note: '咳嗽' },
+      headers: auth(),
+      payload: { portion: 'absent', reason: 'sick', note: '咳嗽' },
     });
     expect(put.statusCode).toBe(200);
-    expect(put.json().record).toMatchObject({ date: '2026-09-14', status: 'leave', byName: '妈妈' });
+    expect(put.json().record).toMatchObject({ date: '2026-09-14', portion: 'absent', byName: '妈妈' });
 
     const bulk = await app.inject({
       method: 'POST',
       url: '/api/records/bulk',
-      headers: { cookie },
-      payload: { dates: ['2026-09-17', '2026-09-18'], status: 'leave', reason: 'sick' },
+      headers: auth(),
+      payload: { dates: ['2026-09-17', '2026-09-18'], portion: 'absent', reason: 'sick' },
     });
     expect(bulk.statusCode).toBe(200);
     expect(bulk.json().records).toHaveLength(2);
@@ -71,58 +74,98 @@ describe('接口', () => {
     const list = await app.inject({
       method: 'GET',
       url: '/api/records?from=2026-09-01&to=2026-09-30',
-      headers: { cookie },
+      headers: auth(),
     });
     expect(list.json().records).toHaveLength(3);
 
     const removed = await app.inject({
       method: 'DELETE',
       url: '/api/records/2026-09-14',
-      headers: { cookie },
+      headers: auth(),
     });
     expect(removed.json().deleted).toBe(true);
   });
 
-  it('打卡记录同时出现在统计里', async () => {
-    await app.inject({
+  it('可以只记半天', async () => {
+    const response = await app.inject({
       method: 'PUT',
       url: '/api/records/2026-09-15',
-      headers: { cookie },
-      payload: { status: 'leave', reason: 'sick' },
+      headers: auth(),
+      payload: { portion: 'morning', reason: 'sick', note: '中午接走' },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json().record.portion).toBe('morning');
+
+    const stats = (
+      await app.inject({ method: 'GET', url: '/api/stats?scope=month&month=2026-09', headers: auth() })
+    ).json().stats;
+    expect(stats.presentDays).toBe(0.5);
+    expect(stats.leaveDays).toBe(0.5);
+    expect(stats.halfDayLeaveCount).toBe(1);
+    expect(stats.leaveDetails[0]).toMatchObject({ portionLabel: '只去了上午', absentDays: 0.5 });
+  });
+
+  it('提前请的三天可以一次撤销掉', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/records/bulk',
+      headers: auth(),
+      payload: { dates: ['2026-09-17', '2026-09-18', '2026-09-21'], portion: 'absent', reason: 'sick' },
+    });
+    let stats = (
+      await app.inject({ method: 'GET', url: '/api/stats?scope=month&month=2026-09', headers: auth() })
+    ).json().stats;
+    expect(stats.upcomingLeaveDates).toEqual(['2026-09-17', '2026-09-18', '2026-09-21']);
+
+    const undone = await app.inject({
+      method: 'POST',
+      url: '/api/records/bulk-delete',
+      headers: auth(),
+      payload: { dates: ['2026-09-17', '2026-09-18', '2026-09-21'] },
+    });
+    expect(undone.json().deleted).toBe(3);
+
+    stats = (await app.inject({ method: 'GET', url: '/api/stats?scope=month&month=2026-09', headers: auth() })).json()
+      .stats;
+    expect(stats.upcomingLeaveDates).toEqual([]);
+  });
+
+  it('园里放假那天不算应上学日', async () => {
+    await app.inject({
+      method: 'POST',
+      url: '/api/holidays',
+      headers: auth(),
+      payload: { date: '2026-09-16', label: '园里停课' },
     });
 
-    const response = await app.inject({
-      method: 'GET',
-      url: '/api/stats?scope=month&month=2026-09',
-      headers: { cookie },
-    });
-    const body = response.json();
-    expect(response.statusCode).toBe(200);
-    expect(body.stats.leave).toBe(1);
-    expect(body.stats.unrecorded).toBe(6);
-    expect(body.term.name).toBe('2026 秋季学期');
+    const stats = (
+      await app.inject({ method: 'GET', url: '/api/stats?scope=month&month=2026-09', headers: auth() })
+    ).json().stats;
+    expect(stats.holidayDays).toBe(1);
+    expect(stats.schoolDays).toBe(7);
+    expect(stats.pendingToday).toBe(false);
   });
 
   it('拒绝非法日期和非法状态', async () => {
     const badDate = await app.inject({
       method: 'PUT',
       url: '/api/records/2026-09-31',
-      headers: { cookie },
-      payload: { status: 'present' },
+      headers: auth(),
+      payload: { portion: 'full' },
     });
     expect(badDate.statusCode).toBe(400);
 
-    const badStatus = await app.inject({
+    const badPortion = await app.inject({
       method: 'PUT',
       url: '/api/records/2026-09-16',
-      headers: { cookie },
-      payload: { status: 'holiday' },
+      headers: auth(),
+      payload: { portion: 'holiday' },
     });
-    expect(badStatus.statusCode).toBe(400);
+    expect(badPortion.statusCode).toBe(400);
   });
 
   it('首屏配置一次拿齐', async () => {
-    const response = await app.inject({ method: 'GET', url: '/api/config', headers: { cookie } });
+    const response = await app.inject({ method: 'GET', url: '/api/config', headers: auth() });
     const body = response.json();
     expect(body.today).toBe('2026-09-16');
     expect(body.who).toBe('妈妈');
@@ -134,7 +177,7 @@ describe('接口', () => {
     const changed = await app.inject({
       method: 'PUT',
       url: '/api/passcode',
-      headers: { cookie },
+      headers: auth(),
       payload: { code: 'new-pass', who: '妈妈' },
     });
     expect(changed.statusCode).toBe(200);
@@ -143,27 +186,52 @@ describe('接口', () => {
     expect((await login('new-pass')).statusCode).toBe(200);
   });
 
-  it('导出 CSV 带表头且不误伤中文', async () => {
+  it('导出的 CSV 带半天和缺勤天数两列', async () => {
     await app.inject({
       method: 'PUT',
       url: '/api/records/2026-09-15',
-      headers: { cookie },
-      payload: { status: 'leave', reason: 'sick', note: '咳嗽,发烧' },
+      headers: auth(),
+      payload: { portion: 'afternoon', reason: 'sick', note: '咳嗽,发烧' },
     });
 
-    const response = await app.inject({ method: 'GET', url: '/api/export?format=csv', headers: { cookie } });
+    const response = await app.inject({ method: 'GET', url: '/api/export?format=csv&month=2026-09', headers: auth() });
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toContain('text/csv');
-    expect(response.body).toContain('日期,状态,请假原因,备注,记录人');
+    expect(response.body).toContain('日期,星期,在园情况,缺勤天数,请假原因,备注,记录人');
+    expect(response.body).toContain('只去了下午');
     expect(response.body).toContain('"咳嗽,发烧"');
   });
 
+  it('导出的 JSON 可以导回来', async () => {
+    await app.inject({
+      method: 'PUT',
+      url: '/api/records/2026-09-15',
+      headers: auth(),
+      payload: { portion: 'morning', reason: 'sick' },
+    });
+    const backup = (await app.inject({ method: 'GET', url: '/api/export?format=json', headers: auth() })).json();
+
+    const restored = await app.inject({
+      method: 'POST',
+      url: '/api/import',
+      headers: auth(),
+      payload: { records: backup.records, holidays: backup.holidays },
+    });
+    expect(restored.statusCode).toBe(200);
+    expect(restored.json().imported.records).toBe(1);
+
+    const list = (
+      await app.inject({ method: 'GET', url: '/api/records?from=2026-09-01&to=2026-09-30', headers: auth() })
+    ).json().records;
+    expect(list[0].portion).toBe('morning');
+  });
+
   it('学期和节假日可以改', async () => {
-    const terms = (await app.inject({ method: 'GET', url: '/api/terms', headers: { cookie } })).json().terms;
+    const terms = (await app.inject({ method: 'GET', url: '/api/terms', headers: auth() })).json().terms;
     const updated = await app.inject({
       method: 'PUT',
       url: `/api/terms/${terms[0].id}`,
-      headers: { cookie },
+      headers: auth(),
       payload: { endDate: '2027-01-29' },
     });
     expect(updated.json().term.endDate).toBe('2027-01-29');
@@ -171,16 +239,16 @@ describe('接口', () => {
     await app.inject({
       method: 'POST',
       url: '/api/holidays',
-      headers: { cookie },
+      headers: auth(),
       payload: { date: '2026-11-02', label: '园里活动' },
     });
-    const holidays = (await app.inject({ method: 'GET', url: '/api/holidays', headers: { cookie } })).json().holidays;
+    const holidays = (await app.inject({ method: 'GET', url: '/api/holidays', headers: auth() })).json().holidays;
     expect(holidays.some((holiday: { date: string }) => holiday.date === '2026-11-02')).toBe(true);
 
     const removed = await app.inject({
       method: 'DELETE',
       url: '/api/holidays/2026-11-02',
-      headers: { cookie },
+      headers: auth(),
     });
     expect(removed.json().deleted).toBe(true);
   });

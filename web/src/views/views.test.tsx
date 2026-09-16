@@ -26,20 +26,35 @@ const config: AppConfig = {
 const stats: StatsResult = {
   range: { from: '2026-09-07', to: '2026-09-30' },
   schoolDays: 8,
-  present: 5,
-  leave: 2,
+  presentDays: 5.5,
+  leaveDays: 1.5,
+  halfDayLeaveCount: 1,
   unrecorded: 1,
   unrecordedDates: ['2026-09-08'],
   pendingToday: false,
   schoolDaysRemaining: 9,
+  holidayDays: 0,
   upcomingLeaveDates: ['2026-09-17'],
   leaveDetails: [
-    { date: '2026-09-15', weekday: '周二', reason: 'sick', reasonLabel: '病假', note: '咳嗽' },
+    {
+      date: '2026-09-15',
+      weekday: '周二',
+      portion: 'morning',
+      portionLabel: '只去了上午',
+      absentDays: 0.5,
+      reason: 'sick',
+      reasonLabel: '病假',
+      note: '咳嗽',
+    },
   ],
+  leaveByReason: [{ key: 'sick', label: '病假', days: 1.5 }],
 };
 
 const records = new Map<string, AttendanceRecord>([
-  ['2026-09-15', { date: '2026-09-15', status: 'leave', reason: 'sick', note: '咳嗽', byName: '妈妈' }],
+  [
+    '2026-09-15',
+    { date: '2026-09-15', portion: 'morning', reason: 'sick', note: '咳嗽', byName: '妈妈' },
+  ],
 ]);
 
 const noop = () => {};
@@ -52,7 +67,7 @@ describe('页面渲染', () => {
     expect(html).toContain('家庭口令');
   });
 
-  it('主屏：没打卡时给两个大按钮', () => {
+  it('主屏：没打卡时给两个大按钮，并提示要补的日子', () => {
     const html = renderToStaticMarkup(
       <HomeView
         config={config}
@@ -63,15 +78,17 @@ describe('页面渲染', () => {
         onPresent={noop}
         onOpenSheet={noop}
         onGoCalendar={noop}
+        onUndoUpcoming={noop}
       />,
     );
     expect(html).toContain('今天去了');
     expect(html).toContain('今天请假');
     expect(html).toContain('9/8 还没记录');
     expect(html).toContain('已提前请假');
+    expect(html).toContain('撤销');
   });
 
-  it('主屏：打过分时显示状态和"改一下"', () => {
+  it('主屏：半天也有自己的说法，不是笼统的"请假"', () => {
     const html = renderToStaticMarkup(
       <HomeView
         config={{ ...config, today: '2026-09-15' }}
@@ -82,14 +99,15 @@ describe('页面渲染', () => {
         onPresent={noop}
         onOpenSheet={noop}
         onGoCalendar={noop}
+        onUndoUpcoming={noop}
       />,
     );
-    expect(html).toContain('今天请假');
+    expect(html).toContain('今天只去了上午');
     expect(html).toContain('病假');
     expect(html).toContain('改一下');
   });
 
-  it('日历：画出整月的格子和小计', () => {
+  it('日历：画出整月的格子、半天用两段色、小计带小数', () => {
     const html = renderToStaticMarkup(
       <CalendarView
         config={config}
@@ -101,43 +119,73 @@ describe('页面渲染', () => {
       />,
     );
     expect(html).toContain('2026 年 9 月');
-    expect(html).toContain('出勤 5 · 请假 2 · 未记录 1');
+    expect(html).toContain('出勤 5.5 · 缺勤 1.5 · 未记录 1');
+    expect(html).toContain('cell half morning');
     expect((html.match(/class="cell/g) ?? []).length).toBeGreaterThanOrEqual(35);
   });
 
-  it('统计：数字、明细、导出按钮都在', () => {
+  it('统计：数字、分类小计、明细、导出都在', () => {
     const html = renderToStaticMarkup(
       <StatsView config={config} month="2026-09" monthStats={stats} termStats={stats} />,
     );
     expect(html).toContain('本学期累计');
-    expect(html).toContain('请假明细');
+    expect(html).toContain('缺勤分类');
+    expect(html).toContain('缺勤明细');
     expect(html).toContain('9/15 周二');
-    expect(html).toContain('/api/export?format=csv');
+    expect(html).toContain('只去了上午');
+    // HTML 里 & 会被转义成 &amp;
+    expect(html).toContain('/api/export?format=csv&amp;month=2026-09');
+    expect(html).toContain('/api/export?format=json');
   });
 
-  it('设置：学期、节假日、口令', () => {
+  it('设置：学期、放假安排、口令、数据恢复', () => {
     const html = renderToStaticMarkup(
       <SettingsView config={config} onReload={async () => {}} onLogout={async () => {}} />,
     );
     expect(html).toContain('当前学期');
     expect(html).toContain('2026/09/25');
     expect(html).toContain('保存口令');
+    expect(html).toContain('选择备份文件导入');
   });
 
-  it('请假面板：默认选病假，可以一次请几天', () => {
+  it('面板：四个状态可选，选半天时不问"请几天"', () => {
     const html = renderToStaticMarkup(
       <RecordSheet
         date="2026-09-16"
         record={null}
         config={config}
         busy={false}
+        isHoliday={false}
         onClose={noop}
         onSave={async () => {}}
         onDelete={async () => {}}
+        onToggleHoliday={async () => {}}
       />,
     );
+    expect(html).toContain('全天在园');
+    expect(html).toContain('只去了上午');
+    expect(html).toContain('只去了下午');
     expect(html).toContain('病假');
     expect(html).toContain('请几天');
-    expect(html).toContain('去上学了');
+    expect(html).toContain('这天园里放假');
+  });
+
+  it('面板：放假的日子不再问出勤', () => {
+    const html = renderToStaticMarkup(
+      <RecordSheet
+        date="2026-09-25"
+        record={null}
+        config={config}
+        busy={false}
+        isHoliday
+        onClose={noop}
+        onSave={async () => {}}
+        onDelete={async () => {}}
+        onToggleHoliday={async () => {}}
+      />,
+    );
+    expect(html).toContain('这天标记为园里放假');
+    expect(html).toContain('取消放假');
+    expect(html).not.toContain('只去了上午');
   });
 });

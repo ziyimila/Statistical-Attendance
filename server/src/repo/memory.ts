@@ -28,8 +28,8 @@ export class MemoryRepo implements Repo {
   async upsertRecord(input: UpsertInput, byName: string): Promise<AttendanceRecord> {
     const record: AttendanceRecord = {
       date: input.date,
-      status: input.status,
-      reason: input.status === 'leave' ? (input.reason ?? null) : null,
+      portion: input.portion,
+      reason: input.portion === 'full' ? null : (input.reason ?? null),
       note: input.note ?? null,
       byName,
       updatedAt: new Date().toISOString(),
@@ -40,6 +40,14 @@ export class MemoryRepo implements Repo {
 
   async deleteRecord(date: string): Promise<boolean> {
     return this.records.delete(date);
+  }
+
+  async deleteRecords(dates: string[]): Promise<number> {
+    let removed = 0;
+    for (const date of dates) {
+      if (this.records.delete(date)) removed += 1;
+    }
+    return removed;
   }
 
   async listHolidays(): Promise<Holiday[]> {

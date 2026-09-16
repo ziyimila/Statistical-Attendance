@@ -1,6 +1,6 @@
 import Icon from '../components/Icon';
 import { monthGrid, monthLabel, shiftMonth, shortDate, weekdayLabel } from '../dates';
-import type { AppConfig, AttendanceRecord, StatsResult } from '../types';
+import { formatDays, type AppConfig, type AttendanceRecord, type StatsResult } from '../types';
 
 interface Props {
   config: AppConfig;
@@ -24,8 +24,10 @@ export default function CalendarView({ config, records, month, monthStats, onCha
     const weekend = weekdayLabel(date) === '周六' || weekdayLabel(date) === '周日';
     const classes = ['cell'];
     if (holidaySet.has(date)) classes.push('holiday');
-    else if (record?.status === 'leave') classes.push(date > config.today ? 'leave upcoming' : 'leave');
-    else if (record?.status === 'present') classes.push('present');
+    else if (record?.portion === 'absent') classes.push(date > config.today ? 'leave upcoming' : 'leave');
+    else if (record?.portion === 'morning') classes.push('half morning');
+    else if (record?.portion === 'afternoon') classes.push('half afternoon');
+    else if (record?.portion === 'full') classes.push('present');
     else if (weekend) classes.push('holiday');
     else if (date > config.today) classes.push('future');
     else classes.push('missing');
@@ -58,7 +60,7 @@ export default function CalendarView({ config, records, month, monthStats, onCha
       <section className="card">
         <div className="card-head">
           <span className="card-title">
-            出勤 {monthStats?.present ?? 0} · 请假 {monthStats?.leave ?? 0} · 未记录{' '}
+            出勤 {formatDays(monthStats?.presentDays ?? 0)} · 缺勤 {formatDays(monthStats?.leaveDays ?? 0)} · 未记录{' '}
             {monthStats?.unrecorded ?? 0}
           </span>
           {!isThisMonth ? (
@@ -99,7 +101,11 @@ export default function CalendarView({ config, records, month, monthStats, onCha
         </span>
         <span>
           <i className="swatch leave" />
-          请假
+          全天没去
+        </span>
+        <span>
+          <i className="swatch half" />
+          只去半天
         </span>
         <span>
           <i className="swatch holiday" />

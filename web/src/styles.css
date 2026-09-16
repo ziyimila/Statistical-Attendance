@@ -650,6 +650,19 @@ ul {
   background: repeating-linear-gradient(135deg, var(--leave-bg) 0 6px, #fbeacb 6px 12px);
 }
 
+/* 只去了半天：上半格=上午在园，下半格=下午缺勤（afternoon 反过来） */
+.cell.half.morning {
+  background: linear-gradient(180deg, var(--present-bg) 0 50%, var(--leave-bg) 50% 100%);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
+.cell.half.afternoon {
+  background: linear-gradient(180deg, var(--leave-bg) 0 50%, var(--present-bg) 50% 100%);
+  color: var(--ink-2);
+  font-weight: 600;
+}
+
 .cell.holiday {
   background: #f1ede6;
   color: #b0a798;
@@ -701,6 +714,11 @@ ul {
 .swatch.leave {
   background: var(--leave-bg);
   box-shadow: inset 0 0 0 1px var(--leave-line);
+}
+
+.swatch.half {
+  background: linear-gradient(180deg, var(--present-bg) 0 50%, var(--leave-bg) 50% 100%);
+  box-shadow: inset 0 0 0 1px var(--line-strong);
 }
 
 .swatch.holiday {
@@ -780,6 +798,66 @@ ul {
 .tag.present {
   background: var(--present-bg);
   color: var(--present-ink);
+}
+
+.tag.half {
+  background: linear-gradient(120deg, var(--present-bg) 0 50%, var(--leave-bg) 50% 100%);
+  color: var(--ink-2);
+}
+
+/* ---------- 四选一 ---------- */
+.choices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: #f7f4ef;
+  text-align: left;
+  transition: background 0.18s var(--ease), box-shadow 0.18s var(--ease), transform 0.14s var(--ease);
+}
+
+.choice:active {
+  transform: scale(0.97);
+}
+
+.choice strong {
+  font-size: 15px;
+  font-weight: 620;
+}
+
+.choice.on {
+  background: var(--present-bg);
+  box-shadow: inset 0 0 0 1.5px var(--present-line);
+  color: var(--present-ink);
+}
+
+.choice.on.leave-choice {
+  background: var(--leave-bg);
+  box-shadow: inset 0 0 0 1.5px var(--leave-line);
+  color: var(--leave-ink);
+}
+
+.toast-action {
+  margin-left: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.notice .btn-ghost {
+  margin-left: auto;
+  padding: 4px 10px;
 }
 
 /* ---------- 表单 ---------- */

@@ -1,23 +1,33 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { addDays, eachDate, isValidDateString } from '../domain/dates.js';
-import { LEAVE_REASONS, type LeaveReason } from '../domain/types.js';
+import {
+  ATTENDANCE_PORTIONS,
+  LEAVE_REASONS,
+  type AttendancePortion,
+  type LeaveReason,
+} from '../domain/types.js';
 import { badRequest } from './deps.js';
 import type { RouteDeps } from './deps.js';
 
 const reasonSchema = z.enum(LEAVE_REASONS as [LeaveReason, ...LeaveReason[]]);
+const portionSchema = z.enum(ATTENDANCE_PORTIONS as [AttendancePortion, ...AttendancePortion[]]);
 
 const recordBodySchema = z.object({
-  status: z.enum(['present', 'leave']),
+  portion: portionSchema,
   reason: reasonSchema.nullish(),
   note: z.string().max(200).nullish(),
 });
 
 const bulkBodySchema = z.object({
   dates: z.array(z.string()).min(1).max(60),
-  status: z.enum(['present', 'leave']),
+  portion: portionSchema,
   reason: reasonSchema.nullish(),
   note: z.string().max(200).nullish(),
+});
+
+const bulkDeleteSchema = z.object({
+  dates: z.array(z.string()).min(1).max(180),
 });
 
 export function registerRecordRoutes(app: FastifyInstance, deps: RouteDeps): void {
@@ -41,7 +51,7 @@ export function registerRecordRoutes(app: FastifyInstance, deps: RouteDeps): voi
     if (!body.success) return badRequest(reply, '打卡内容不合法');
 
     const record = await deps.repo.upsertRecord(
-      { date, status: body.data.status, reason: body.data.reason ?? null, note: body.data.note ?? null },
+      { date, portion: body.data.portion, reason: body.data.reason ?? null, note: body.data.note ?? null },
       request.who ?? '未知',
     );
     return { record };
@@ -57,12 +67,20 @@ export function registerRecordRoutes(app: FastifyInstance, deps: RouteDeps): voi
     for (const date of [...new Set(body.data.dates)].sort()) {
       records.push(
         await deps.repo.upsertRecord(
-          { date, status: body.data.status, reason: body.data.reason ?? null, note: body.data.note ?? null },
+          { date, portion: body.data.portion, reason: body.data.reason ?? null, note: body.data.note ?? null },
           request.who ?? '未知',
         ),
       );
     }
     return { records };
+  });
+
+  /** 撤销：把一批日期整条删掉（比如"提前请了三天，后来不用请了"） */
+  app.post('/api/records/bulk-delete', async (request, reply) => {
+    const body = bulkDeleteSchema.safeParse(request.body);
+    if (!body.success) return badRequest(reply, '请提供要撤销的日期');
+    if (!body.data.dates.every(isValidDateString)) return badRequest(reply, '日期不合法');
+    return { deleted: await deps.repo.deleteRecords([...new Set(body.data.dates)]) };
   });
 
   app.delete('/api/records/:date', async (request, reply) => {

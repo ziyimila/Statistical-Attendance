@@ -1,8 +1,8 @@
-import type { AttendanceRecord, AttendanceStatus, Holiday, LeaveReason, Term } from '../domain/types.js';
+import type { AttendancePortion, AttendanceRecord, Holiday, LeaveReason, Term } from '../domain/types.js';
 
 export interface UpsertInput {
   date: string;
-  status: AttendanceStatus;
+  portion: AttendancePortion;
   reason?: LeaveReason | null;
   note?: string | null;
 }
@@ -18,6 +18,7 @@ export interface Repo {
   listRecords(from: string, to: string): Promise<AttendanceRecord[]>;
   upsertRecord(input: UpsertInput, byName: string): Promise<AttendanceRecord>;
   deleteRecord(date: string): Promise<boolean>;
+  deleteRecords(dates: string[]): Promise<number>;
 
   listHolidays(): Promise<Holiday[]>;
   addHoliday(date: string, label: string): Promise<Holiday>;
