@@ -41,16 +41,20 @@
 ### 4.1 整体形态
 
 ```
-手机/电脑浏览器
-      │  HTTPS  https://<子域名>
+手机 / 电脑浏览器
+      │  HTTPS   https://<子域名>
       ▼
-Nginx Proxy Manager（已存在，负责 TLS 和反向代理）
-      │  http://attendance:3000（Docker 内网）
+┌─────────────── proxy_net ───────────────┐
+│  nginx-proxy-manager（双网卡）           │
+└─────────────────────────────────────────┘
+      │  http://attendance:3000   （Docker 内网直连容器名）
       ▼
-attendance 应用容器（Node.js：既发前端静态文件，也提供 REST API）
-      │  mysql://<已有 MySQL 容器>
-      ▼
-MySQL（复用现有容器，只新建一个库）
+┌─────────────── app_net ─────────────────────────────────┐
+│  nginx-proxy-manager（双网卡，本项目的入口）              │
+│  mysql          ← 复用现有容器，只新建 attendance 库      │
+│  attendance     ← 本项目唯一新增的容器                    │
+│  redis / openclaw-gateway / aiclient2api / ...           │
+└─────────────────────────────────────────────────────────┘
 ```
 
 要点：
@@ -58,7 +62,8 @@ MySQL（复用现有容器，只新建一个库）
 - **只有一个自建容器**。前端静态资源和 API 由同一个 Node 进程提供，减少部署面。
 - **不新建 MySQL 容器**，复用服务器上已有的那个，只新建 `attendance` 库（另建 `attendance_dev` 供本地开发）。
 - **TLS 和域名由 Nginx Proxy Manager 负责**，应用只监听 HTTP 3000 端口，不管证书。
-- 应用容器加入 MySQL 所在的 Docker 网络，用容器名互访，不往宿主机暴露额外端口。
+- **应用容器只加入 `app_net`**。NPM 是双网卡，已经在 `proxy_net` 接公网、在 `app_net` 接后端，所以它转发到 `attendance:3000` 走的是 `app_net`，本项目不需要碰 `proxy_net`，也不需要给 mihomo 那一侧做任何改动。
+- 容器之间用容器名互访，不往宿主机映射端口。
 
 ### 4.2 技术选型
 
@@ -247,18 +252,27 @@ docker-compose.yml
 
 只定义一个 `attendance` 服务：
 
-- 加入 MySQL 所在的 Docker 外部网络
-- 端口只在 Docker 内网暴露 3000，不映射到宿主机
-- 环境变量从 `.env` 读取：数据库连接、`CODE_MOM`、`CODE_DAD`、`APP_SECRET`、`TZ=Asia/Shanghai`
+- `container_name: attendance`，服务名同名，方便反代按容器名寻址
+- 网络：`app_net`，声明为 external，compose 只加入不创建
+  ```yaml
+  networks:
+    app_net:
+      external: true
+  ```
+- 端口：容器内监听 3000，只在 Docker 内网暴露，**不做 ports 映射**，宿主机上不新增任何监听端口
+- 环境变量从 `.env` 读取：`DB_HOST=mysql`、`DB_PORT`、`DB_USER`、`DB_PASSWORD`、`DB_NAME=attendance`、`CODE_MOM`、`CODE_DAD`、`APP_SECRET`、`TZ=Asia/Shanghai`
 - 配置 healthcheck 指向 `/api/health`
-- 容器名 `attendance`，方便反代直接按名字寻址
+- 重启策略 `unless-stopped`，与服务器上其他容器保持一致
+
+部署时不会动到 `app_net` 上现有的任何容器，包括 redis、openclaw-gateway、aiclient2api；如果 `attendance` 出问题，删掉这个容器和它的库，其余服务不受影响。
 
 ### 10.3 Nginx Proxy Manager
 
-在已有的 NPM 里新增一个 Proxy Host：
+在已有的 NPM 里新增一个 Proxy Host（这是唯一需要在 NPM 上做的改动）：
 
 - Domain：家长指定的子域名，例如 `attendance.example.com`
-- Forward Hostname：`attendance`（同网络时用容器名）或宿主机 IP + 映射端口
+- Scheme：http
+- Forward Hostname：`attendance`（同在 `app_net`，直接写容器名，不用写 IP）
 - Forward Port：3000
 - 开启 SSL，申请 Let's Encrypt 证书，强制 HTTPS
 
@@ -282,7 +296,7 @@ docker-compose.yml
 
 1. 学期的结束日期（开学日按 2026-09-07 预填）
 2. 准备用哪个子域名
-3. 服务器 MySQL 容器的容器名 / 网络名 / 是否允许新建库和账号
+3. MySQL 容器名（默认按 `mysql` 写）和连接凭据；是否允许新建 `attendance` 库和专用账号（网络名 `app_net` 已确认）
 4. 部署方式：家长提供 SSH，还是由家长在服务器上执行我给出的命令
 5. 本地开发环境：本机没有安装 Docker，本地联调是装 Docker Desktop，还是直连服务器上的 `attendance_dev` 库
 
