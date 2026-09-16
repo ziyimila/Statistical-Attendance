@@ -81,10 +81,10 @@
 ```
 server/            API 与静态文件服务
   src/
-    db.ts          连接池
-    schema.sql     建表语句（幂等）
+    db/schema.ts   建表语句（幂等；写成常量而不是 .sql 文件，容器里不依赖资源路径）
     auth.ts        口令校验、Cookie 签发与验证
-    stats.ts       统计口径（纯函数，重点测试对象）
+    domain/        日期工具 + 统计口径（纯函数，重点测试对象）
+    repo/          数据访问接口 + MySQL 实现 + 内存实现
     routes/
       records.ts   打卡记录读写
       settings.ts  学期与节假日配置
@@ -161,6 +161,7 @@ docker-compose.yml
 | POST | /api/login | 提交口令，签发 Cookie |
 | POST | /api/logout | 清除 Cookie |
 | GET | /api/health | 健康检查，供 Docker 和反代使用 |
+| GET | /api/config | 首屏一次拿齐：今天、当前学期、学期列表、节假日、当前身份 |
 | GET | /api/records?from=&to= | 按区间取记录，日历和统计共用 |
 | PUT | /api/records/:date | 新增或覆盖某天 |
 | POST | /api/records/bulk | 一次写入多天（连续请假） |
@@ -172,6 +173,7 @@ docker-compose.yml
 | DELETE | /api/holidays/:date | 删除节假日 |
 | GET | /api/stats?scope=month\|term&month=YYYY-MM | 出勤/请假/未记录天数 + 请假明细 |
 | GET | /api/export?format=json\|csv | 导出全部记录和配置 |
+| PUT | /api/passcode | 修改自己的家庭口令 |
 
 接口约定：请求与响应均为 JSON；出错时返回 `{error: {code, message}}`，HTTP 状态码语义正确；写操作返回写入后的记录。
 
@@ -220,23 +222,28 @@ docker-compose.yml
 
 **应上学日** = 学期起止区间内，周一至周五，且不在 holidays 表里的日期。
 
+报出来的 `schoolDays` 只统计**截至今天（含今天）**的应上学日，也就是出勤统计的分母；今天之后还剩多少个应上学日单独用 `schoolDaysRemaining` 表示，这样数字才对得上账。
+
 统计范围有两个：本月（自然月与学期区间的交集）和本学期（整个学期区间）。两个范围的内部口径完全一致：
 
 | 类别 | 定义 |
 |---|---|
-| 出勤 | 应上学日，且 records 中 status = present |
-| 请假 | 应上学日，且 records 中 status = leave |
+| 出勤 | 应上学日，日期不晚于今天，且 records 中 status = present |
+| 请假 | 应上学日，日期不晚于今天，且 records 中 status = leave |
 | 未记录 | 应上学日，日期在今天之前，且 records 中查无此日 |
 | 待打卡 | 就是今天，且还没有记录（不计入未记录） |
+| 未来请假 | 今天之后已标记为请假的日期，只做提示，不计入请假天数 |
+
+恒等式：`出勤 + 请假 + 未记录 + （今天待打卡 ? 1 : 0）= schoolDays`。测试会断言这一条，防止以后改口径时改出漏洞。
 
 补充规则：
 
 - 周末和节假日即使被标记了请假（例如周末生病顺手标了一下），也**不计入**请假天数，只作为备注性质的记录存在
-- 未来日期不计入任何"未记录"，只影响"已提前请假"的提示
+- 未来日期不计入任何"未记录"，也不计入请假天数，只影响"已提前请假"的提示
 - 本月统计是自然月与学期区间的交集，学期外的日期不参与计算
 - 请假明细只列应上学日内的请假
 
-以上口径全部实现在 `server/src/stats.ts` 的纯函数里，输入是"记录数组 + 节假日集合 + 学期区间 + 今天"，输出是三个天数加明细，不依赖数据库和当前时间，便于测试。
+以上口径全部实现在 `server/src/domain/stats.ts` 的纯函数里，输入是"记录数组 + 节假日集合 + 学期区间 + 今天"，输出是各分类天数加明细，不依赖数据库和当前时间，便于测试。
 
 ## 10. 部署方案
 
@@ -298,7 +305,7 @@ docker-compose.yml
 2. 准备用哪个子域名
 3. MySQL 容器名（默认按 `mysql` 写）和连接凭据；是否允许新建 `attendance` 库和专用账号（网络名 `app_net` 已确认）
 4. 部署方式：家长提供 SSH，还是由家长在服务器上执行我给出的命令
-5. 本地开发环境：本机没有安装 Docker，本地联调是装 Docker Desktop，还是直连服务器上的 `attendance_dev` 库
+5. 本地开发环境：本机没有安装 Docker，目前用 `DB_DRIVER=memory` 的内存模式开发；要连真实数据库再决定用 Docker Desktop 还是直连服务器上的 `attendance_dev` 库
 
 ## 13. 后续可以加的东西（现在不做）
 
