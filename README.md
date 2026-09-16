@@ -31,9 +31,12 @@ cp .env.example .env     # Windows: Copy-Item .env.example .env
 把 `.env` 里 `DB_DRIVER` 改成 `memory`，再填上 `APP_SECRET`、`CODE_MOM`、`CODE_DAD`，就能不装数据库直接跑：
 
 ```bash
-npm run dev:server       # 后端
-npm run dev:web          # 前端，打开 http://localhost:5173
+npm run dev
 ```
+
+后端在 http://localhost:3000，前端在 http://localhost:5173，`Ctrl+C` 一起停。
+两个想分开跑也行（`npm run dev:server` / `npm run dev:web`），但**前端的接口请求是代理到 3000 的**，所以 `.env` 里的 `PORT` 要保持 3000，不然页面能打开但登录会失败。
+只看界面、不需要热更新的话，`npm run dev:server` 之后直接开 http://localhost:3000 就够了——后端会把构建好的前端一起发出来。
 
 内存模式重启后数据就没了，只用来看界面和试流程。要连真实数据库，把 `DB_DRIVER` 改回 `mysql` 并填上连接信息。
 
