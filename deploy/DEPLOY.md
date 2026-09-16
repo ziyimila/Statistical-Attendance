@@ -35,7 +35,26 @@ cd attendance
 ```bash
 cp deploy/init-db.sql /tmp/init-db.sql
 vi /tmp/init-db.sql                    # 把 '改成你的密码' 换成真实密码
-docker exec -i mysql_server mysql -uroot -p < /tmp/init-db.sql
+
+# 注意：不要写 docker exec -i ... mysql -uroot -p < 文件
+# 少了 -t 的时候 mysql 读不到终端，会把重定向进来的 SQL 文件当成密码，报 Access denied
+docker cp /tmp/init-db.sql mysql_server:/tmp/init-db.sql
+docker exec -it mysql_server mysql -u root -p
+```
+
+进去之后在 `mysql>` 提示符下执行：
+
+```sql
+source /tmp/init-db.sql;
+exit
+```
+
+不想进交互界面的话，用环境变量传密码也是一样的效果：
+
+```bash
+read -s -p "MySQL root 密码: " MYSQL_ROOT_PW; echo
+docker exec -i -e MYSQL_PWD="$MYSQL_ROOT_PW" mysql_server mysql -u root < /tmp/init-db.sql
+unset MYSQL_ROOT_PW
 ```
 
 这台服务器上 MySQL 的容器名是 `mysql_server`（镜像 mysql:8.0），`.env` 里的 `DB_HOST` 已经按这个名字预填好了。
