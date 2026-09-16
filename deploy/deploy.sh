@@ -60,29 +60,46 @@ else
 fi
 
 echo
-echo "== 3/7 检查能不能拉/找到基础镜像 =="
+echo "== 3/7 找可用的基础镜像 =="
 base_image="${BASE_IMAGE:-node:24-alpine}"
 if docker image inspect "$base_image" >/dev/null 2>&1; then
   ok "本地已有 $base_image"
-elif docker pull "$base_image" >/dev/null 2>&1; then
-  ok "成功拉取 $base_image"
 else
-  echo
-  echo "拉不到 $base_image。这是国内服务器的常见问题，跟代码无关。三个办法："
-  echo
-  echo "  1) 先看看服务器上有没有现成的 node 镜像可以直接用："
-  echo "       docker images | grep -i node"
-  echo "     有的话，在 .env 里加一行指定它，比如："
-  echo "       BASE_IMAGE=node:22-alpine"
-  echo
-  echo "  2) 换成国内镜像源，在 .env 里加一行："
-  echo "       BASE_IMAGE=docker.nju.edu.cn/library/node:24-alpine"
-  echo "     （也可以试 docker.m.daocloud.io/library/node:24-alpine）"
-  echo
-  echo "  3) 最彻底的是给 docker 配加速器（阿里云容器镜像服务里有专属地址）："
-  echo "       在 /etc/docker/daemon.json 里加 {\"registry-mirrors\":[\"https://你的专属地址.mirror.aliyuncs.com\"]}"
-  echo "       然后 systemctl restart docker"
-  exit 1
+  pull_log="$(mktemp)"
+  candidates=("$base_image")
+  for mirror in docker.1ms.run docker.m.daocloud.io hub.rat.dev; do
+    candidates+=("$mirror/library/node:24-alpine")
+  done
+
+  found=""
+  for candidate in "${candidates[@]}"; do
+    printf '  试 %-46s ' "$candidate"
+    if docker pull "$candidate" >"$pull_log" 2>&1; then
+      echo "✓"
+      found="$candidate"
+      break
+    fi
+    echo "✗"
+  done
+
+  if [ -z "$found" ]; then
+    echo
+    echo "所有源都拉不动。最后一次的原始报错："
+    echo "--------------------------------------------------------------"
+    tail -n 15 "$pull_log"
+    echo "--------------------------------------------------------------"
+    echo
+    echo "把上面这段发出来。顺手再跑这两条，能判断是不是 docker 没走服务器上的代理："
+    echo "  docker info | grep -i proxy"
+    echo "  cat /etc/docker/daemon.json 2>/dev/null || echo '(没有 daemon.json)'"
+    exit 1
+  fi
+
+  # 这次构建就用它；compose 读的是环境变量，会盖过 .env 里的值
+  export BASE_IMAGE="$found"
+  ok "这次用 $found 构建"
+  echo "  建议把这行加到 .env 里固化下来，下次不用再试："
+  echo "    BASE_IMAGE=$found"
 fi
 
 if [ "${1:-}" = "--pull" ]; then
